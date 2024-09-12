@@ -1,0 +1,9 @@
+__pycache__/
+_audio/
+_export/
+_output/
+_merge/
+*.mp4
+*.m4a
+*.png
+*.jpg
