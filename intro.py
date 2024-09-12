@@ -4,7 +4,7 @@
 ######################
 import argparse
 from subprocess import call
-from config import *
+from ffmpeg import *
 import os
 
 this_year = 2024

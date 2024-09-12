@@ -3,7 +3,6 @@
 ######################
 import argparse
 from subprocess import call
-from config import *
 import os, re, glob
 
 scrn_size   = "1280x720"

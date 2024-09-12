@@ -3,7 +3,6 @@
 ######################
 import argparse
 from subprocess import call
-from config import *
 import os, re
 
 ppath = os.path.join(os.path.expanduser("~"),"anaconda3","envs","sds","bin")

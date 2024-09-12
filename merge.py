@@ -6,7 +6,6 @@
 ######################
 import argparse
 from subprocess import call, check_output
-from config import *
 import os, re, glob
 import math
 

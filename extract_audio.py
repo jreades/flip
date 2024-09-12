@@ -4,7 +4,6 @@
 import argparse
 from pydub import AudioSegment
 from subprocess import call
-from config import *
 import os, re, glob
 
 ppath = os.path.join(os.path.expanduser("~"),"anaconda3","envs","sds","bin")
