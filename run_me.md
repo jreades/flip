@@ -1,3 +1,7 @@
+# Reference File for Lectures
+
+This is just being used so that it's easy to render the videos again next year.
+
 python ffmpeg/process.py -t 2.3-Python_the_Basics-2 -n "Python: the Basics\\\nPart 2" -s 'http://localhost:4200/lectures/' -d -a -f
 
 python ffmpeg/process.py -t 2.4-Python_the_Basics-2 -n "Python: the Basics\\\nPart 2" -s 'http://localhost:4200/lectures/' -d -a -f

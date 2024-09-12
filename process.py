@@ -9,9 +9,9 @@ import os, re
 ppath = os.path.join(os.path.expanduser("~"),"anaconda3","envs","sds","bin")
 
 parser = argparse.ArgumentParser(
-                    prog='Lecture Video Generator',
+                    prog='process.py',
                     description='Integrates the various steps in extracting and converting a lecture to a video (audio has to be generated separately for now).',
-                    epilog='For example: `python ffmpeg/process.py -t 3.4-Functions -n "It\'s Functional"`')
+                    epilog='For example: `python flip/process.py -t 3.4-Functions -n "It\'s Functional"`')
 parser.add_argument('-t', '--talk', type=str, help="The folder name with the talk.")
 parser.add_argument('-n', '--name', type=str, help="The name of the talk, for multi-line separate with \\n")
 parser.add_argument('-s', '--server', type=str, help="Where to access the Reveal.js slides", default='http://localhost:4200/lectures')
@@ -28,7 +28,7 @@ if args.exportdeck:
     print("=" * 14 + " Extracting deck " + "=" * 14)
     print("=" * 40)
     cmd = ''
-    cmd += f'{ppath}/python {os.path.join("ffmpeg","extract_deck.py")} \\\n'
+    cmd += f'{ppath}/python {os.path.join("flip","extract_deck.py")} \\\n'
     cmd += f'  -t {args.talk} \\\n'
     cmd += f'  -s {args.server}'
 

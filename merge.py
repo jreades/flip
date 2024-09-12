@@ -14,7 +14,7 @@ ppath = os.path.join(os.path.expanduser("~"),"anaconda3","envs","sds","bin")
 os.makedirs('_output', exist_ok=True)
 
 parser = argparse.ArgumentParser(
-                    prog='Lecture Video Generator',
+                    prog='merge.py',
                     description='Generates a pre-recorded lecture from stills and audio files. You need to have generated these following a consistent naming/output format.',
                     epilog='For example: `python ffmpeg/merge.py -n "Functions" -t 3.4-Functions`')
 parser.add_argument('-n', '--name', type=str, help="The name of the talk, for multi-line separate with \\n")

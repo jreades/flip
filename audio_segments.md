@@ -1,5 +1,7 @@
 # Audio Cuts
 
+The format for this is fairly important and all four columns are required. The sequence does *not* need to be sequential, it is 'simply' used to generate an integer id that will be matched to a PNG file with the same number. Names are unimportant and solely to make it easier to know what is in the M4A file. As well, the start and end times can be any value matching the pattern `hh:mm:ss.ms` and gaps between end and start are allowed. Indeed, I do not recommend having the end time of one segment *exactly* match the start time of the next segment since it can lead to judder because of the way the audio is extracted. 
+
 ## 2.3-Python the Basics-1
 
 | Start    | End      | Sequence | Name               |

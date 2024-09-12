@@ -13,7 +13,7 @@ pause       = 500 # Applied to both --pause and --load-pause
 ppath = os.path.join(os.path.expanduser("~"),"anaconda3","envs","sds","bin")
 
 parser = argparse.ArgumentParser(
-                    prog='Lecture PNG Generator',
+                    prog='extract_deck.py',
                     description='Generates a set of PNGs from a Reveal.js lecture. Requires node.js and decktape to be installed.',
                     epilog='For example: `python ffmpeg/extract.py -t 3.4-Functions -s https://jreades.github.io/fsds/lectures`')
 parser.add_argument('-t', '--talk', type=str, help="The folder name with the talk.")

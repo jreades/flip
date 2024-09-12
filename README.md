@@ -39,47 +39,92 @@ brew install ffmpeg
 
 ## Generating the Assets
 
-### Exporting Stills
+### All in One
 
-This will extract a Reveal.js deck to a series of PNG files in the `_export` directory. Basic usage is:
+The `process.py` script integrates all of the separate steps listed below but, as a result, has a lot of flags to grapple with. These can be viewed by simply running:
 
 ```bash
-python ffmpeg/extract.py -t 3.4-Functions -s https://jreades.github.io/fsds/lectures
+python flip/process.py --help
+```
+
+But basic usage is:
+
+```bash
+process.py [-h] [-t TALK] [-n NAME] [-s SERVER] [-d] [-a] [-f] [-q]
+```
+
+For example:
+
+```bash
+python flip/process.py -t 10.1-Visualising_Data -n "Visualising Data" -s 'http://localhost:4200/lectures/' -d -a -f
+```
+
+The parameters are:
+
+```
+  -h, --help            show this help message and exit
+  -t TALK, --talk TALK  The folder name with the talk.
+  -n NAME, --name NAME  The name of the talk, for multi-line separate with \n
+  -s SERVER, --server SERVER
+                        Where to access the Reveal.js slides
+  -d, --exportdeck      Skip export of the slide deck to PNG (useful when you are mucking about with the audio and output).
+  -a, --exportaudio     Skip export of the audio files to M4A (useful when you are mucking about with the audio and output).
+  -f, --force           Force generation of video even if number of slides and audio segments doesn't match.
+  -q, --quick           Quick generation (assumes MP4 segments haven't changed).
+```
+
+### Exporting Stills
+
+This will extract a Reveal.js deck to a series of PNG files in the `_export` directory. Again, help can be accessed using:
+
+```bash
+python flip/extract_deck.py --help
+```
+
+But basic usage is:
+
+```bash
+extract_deck.py [-h] [-t TALK] [-s SERVER]
+```
+
+For example:
+
+```bash
+python flip/extract.py -t 3.4-Functions -s https://jreades.github.io/fsds/lectures
 ```
 
 There are only two parameters:
 
-1. `-t` refers to the **talk** or lecture and is the last bit of URL (with or without the `.html`) where the talk can be found.
-2. `-s` refefs to the **server path** where the talk can be found (it defaults to `http://localhost:4200/lectures`).
+```
+  -h, --help            show this help message and exit
+  -t TALK, --talk TALK  The folder name with the talk.
+  -s SERVER, --server SERVER
+                        Where to access the Reveal.js slides
+```
 
 The talks will be exported to `_export/{talk}` with one PNG file per slide in the Reveal.js presentation. Builds are only supported insofar as they are supported by `decktape`.
 
 ### Exporting Audio
 
-Audio can be captured however you like, but you will then be segmenting and exporting the source recording into separate M4A files with one track per slide. [Audacity](https://www.audacityteam.org/) seems to be able to do this fairly well if you want to stick to FOSS. [Audiate](https://www.techsmith.com/camtasia/audiate/) looks promising, but you can't buy it without Camtasia (which is a good product, but far from free).
+Audio can be captured however you like, but you will then be segmenting and exporting the source recording into a single M4A file so that `export_audio.py` can then pull out the tracks. [OcenAudio](https://www.ocenaudio.com/en) seems to be able to do this quite effectively and quickly if you want to stick to FOSS.
 
-#### Setting up Labels in Audacity
+#### Setting up Segments in a Markdown Table
 
-The best way to allow for the recording to be flexible exported as a set of numbered and named files is to create labels:
+The best way to allow for the recording to be flexible exported as a set of numbered and named files is to set up your own labels in a markdown table:
 
-1. Select a range in the recording (if you have set up clips the selection will snap to these).
-2. Type `Cmd`+`B` (or `Edit` > `Labels` > `Add Label at Selection`).
-3. Give the label the same name as the slide title from the presentation.
+The format of the table is reasonably important, including the header that appears immediately before the start of the table. The 'title' for the table should match the `-t` switch passed in to `process.py` (or to `merge.py` if you're running the constituent scripts separately).
 
-To export it's then just:
+**Note**: if you want to skip a slide, simply skip over that number in the `sequence` column of the markdown table. `merge.py` will use the integer id of the PNGs and exported M4A segments to 'zip' up the parts into a movie.
 
-1. `File` > `Export`
-2. Set the folder to the name of the presentation (e.g. `2.5-Talks`).
-3. Format is `M4A` (ffmpeg)
-4. Channels can be `Mono`
-5. Export Range is `Multiple Files`
-6. Split files based on `Labels`
-7. Set to `Numbering before Label/Track Name`
-8. `Export`!
+Some tips:
 
-#### Noise Reduction in Audacity
+- Individual audio segments can be set to start and end at any valid timestamp within the M4A file.
+- By extension, you could repeat the same piece of audio multiple times if you wanted.
+- However, from experience I *can* say that setting the stop time of one segment and the start time of the following segment to the *exact* same time is likely to lead to juddering audio effects. It's best to offset the start time by a millisecond.
 
-If your recording levels are low and/or you discover noise in the recording after the fact then you can [remove background noise](https://www.picoauto.com/library/training/noise-cancellation-with-audacity) as follows:
+#### Noise Reduction
+
+If your recording levels are low and/or you discover noise in the recording after the fact then you can remove background noise in Ocen (or Audacity if you still use that) in the following manner:
 
 1. Select (using the 'I'-like selection tool) a region of the recording that has no speech in it.
 2. Select `Effect` > `Noise Remove and Repair` > `Noise Reduction...`.
@@ -93,21 +138,32 @@ If your recording levels are low and/or you discover noise in the recording afte
 
 So assuming that you have your exported audio in `_audio/{talk}` and your exported stills in `_export/{talk}` then you are ready to `merge` these sources into a finished video. Basic usage would be:
 
-`````bash
-python ffmpeg/merge.py -n "Functions" -t 3.4-Functions
-`````
+```bash
+merge.py [-h] [-n NAME] [-t TALK] [-o OUTPUT] [-f] [-q]
+```
 
-Here there are, again, two arguments:
+For example:
 
-1. `-t` which is deliberately the same as the **talk** parameter used in the `bash` script above.
-2. `-n` which is the plain-English **name** (or title) that you want to have appear during the intro (which replaces slide 1 -- presumed to be a simple title slide -- of the talk). 
+```bash
+python flip/merge.py -n "Functions" -t 3.4-Functions -f
+```
 
-You can run `python ffmpeg/merge.py --help` to get a bit more detail (useful for `-n` when you need a line break in the tile). 
+Here are the options:
+
+```
+  -h, --help            show this help message and exit
+  -n NAME, --name NAME  The name of the talk, for multi-line separate with \n
+  -t TALK, --talk TALK  The folder name with the talk.
+  -o OUTPUT, --output OUTPUT
+                        Name of the ouptut MP4 file.
+  -f, --force           Force generation of video even if number of slides and audio segments doesn't match.
+  -q, --quick           Quick generation (assumes MP4 segments haven't changed).
+```
 
 This script does five things:
 
-1. Generates an intro video segment by calling `intro.py` using the `-n` to create the title sequence (which involves some copyright info and a fade-in for the title).
-2. Generates an 'outro' video segment by calling `outry.py` which is expected to be the same for all talks (since we want consistency across the pre-recorded videos).
+1. Generates an intro video segment by calling `intro.py` using the `-n` (name) to create the title sequence (which involves some copyright info and a fade-in for the title).
+2. Generates an 'outro' video segment by calling `outro.py` which is expected to be the same for all talks (since we want consistency across the pre-recorded videos).
 3. Generates video segments for each slide using `ffmpeg` to merge the PNG file with the matching M4A file. Currently you can only one, and only one, match between a PNG and a M4A file.
 4. Merges these video segments together into a single long-form video.
 5. Trims out the first 0.075 seconds of the merged video since, for some reason, this is always a black screen.
@@ -116,9 +172,11 @@ The results are exported to `_merged/{talk}.mp4` and this is the final output th
 
 ## To Dos
 
-- Allow the user to specify their own matching sequence manually (e.g. have one audio segment and then just specify where to mix in the PNGs) using some kind of text file.
-- Allow the user to have a MP4 file (e.g. 'fireside chat' type thing) that in inserted into the sequence of segments such that you can fade out of the lecture slides to a video of the lecturer talking and then fade back into the next slide in the sequence.
+- Move many of the assumptions about output directories and sources to a separate config.py file so that these can be easily changed and also don't have to be configured individually in each script.
+- Allow the user to include an existing MP4 file (e.g. 'fireside chat' type thing) that is inserted into the sequence of segments such that you can fade out of the lecture slides to a video of the lecturer talking and then fade back into the next slide in the sequence.
+- Expand the OO-aspect used by `intro.py` and `outro.py` so as to make it easier to set upmore complex effects and on-the-fly rendering of elements.
 - Allow a 'talking head' type thing to be overlayed across all slides (e.g. this recording of me talking in green-screened in to the lower-right corner along with the PNG background).
+- Allow for slide transitions to be simulated in ffmpeg using filters.
 
 ### Adding Filters
 
