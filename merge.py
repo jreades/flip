@@ -6,14 +6,15 @@
 ######################
 import argparse
 from subprocess import call, check_output
-import os, re, glob
+from config import *
+import os, re, glob, shutil
 import math
 
 ppath = os.path.join(os.path.expanduser("~"),"anaconda3","envs","sds","bin")
 os.makedirs('_output', exist_ok=True)
 
 parser = argparse.ArgumentParser(
-                    prog='merge.py',
+                    prog='Lecture Video Generator',
                     description='Generates a pre-recorded lecture from stills and audio files. You need to have generated these following a consistent naming/output format.',
                     epilog='For example: `python ffmpeg/merge.py -n "Functions" -t 3.4-Functions`')
 parser.add_argument('-n', '--name', type=str, help="The name of the talk, for multi-line separate with \\n")
@@ -54,9 +55,17 @@ if not os.path.exists(args.stills):
 else:
     print(f"+ Found stills folder {args.stills}")
 
+args.mp4 = os.path.join('_mp4',args.talk)
+if not os.path.exists(args.mp4):
+    print(f"- Couldn't find MP4 folder: '{args.mp4}'")
+    print(f"  Treating this as non-fatal since you might not have any MP4s to include.")
+else:
+    print(f"+ Found MP4 folder {args.mp4}")
+
 # Read in the audio and stills filenames
 audio_files = [x for x in sorted(os.listdir(args.audio)) if x.endswith('.m4a')]
 still_files = [x for x in sorted(os.listdir(args.stills)) if x.endswith('.png')]
+video_files = [x for x in sorted(os.listdir(args.mp4)) if x.endswith('.mp4')]
 #print(audio_files)
 #print(still_files)
 
@@ -77,6 +86,12 @@ first_slide = still_map.pop(1)
 audio_pat = re.compile(r'(?<!m)(\d{1,2})(?!a)')
 audio_map = {int(audio_pat.match(x)[1]):x for x in audio_files}
 #print(audio_map)
+
+######################
+# Organise the existing video
+video_pat = re.compile(r'^(\d{1,2})\b')
+video_map = {int(video_pat.match(x)[1]):x for x in video_files}
+#print(video_map)
 
 # There should be one fewer stills files because
 # we are going to cut the intro slide from the
@@ -101,7 +116,7 @@ if not args.quick:
 
     # Capture the duration
     output = check_output(probe, shell=True).decode("utf-8").split("\n")[1]
-    print(output)
+    #print(output)
     duration = re.match(r'duration=(\d{1,}):(\d{2}):(\d{2})\.(\d{3})\d+',output)
 
     hrs = int(duration[1])
@@ -119,7 +134,7 @@ if not args.quick:
     cmd += f'  -t "{args.name.translate( transl_table )}" \\\n'
     cmd += f'  -o {re.escape(os.path.join(args.stills,first_slide.replace(".png",".mp4")))}'
 
-    print(f"  o {cmd}")
+    #print(f"  o {cmd}")
     call(cmd, shell=True)
 
     cmd = ''
@@ -130,7 +145,7 @@ if not args.quick:
     cmd += f'-c:v libx264 -tune stillimage -pix_fmt yuv420p -c:a aac \\\n'
     cmd += f'{os.path.join(args.merge,first_slide.replace(".png",".mp4"))}'
 
-    print(f"  o {cmd}")
+    #print(f"  o {cmd}")
     call(cmd, shell=True)
     
     print("  + First slide generated.")
@@ -140,25 +155,40 @@ if not args.quick:
 if not args.quick:
     for idx in sorted(still_map.keys()):
         print(f"o Generating slide {idx}...")
-
+        print(f"  {still_map[idx]}")
         try:
-            print(f"  o Matching {still_map[idx]} -> {audio_map[idx]}")
+            if still_map.get(idx, False) and audio_map.get(idx, False):
+                print(f"  o Matching {still_map[idx]} -> {audio_map[idx]}")
 
-            # Generate the introductory slide
-            # ffmpeg -r 30 \
-            #   -loop 1 
-            #   -i 2.3-Python_the_Basics_1_1280x720.png \
-            #   -i 2.3-1.m4a \
-            # 	-c:v libx264 -tune stillimage -shortest -pix_fmt yuv420p \
-            # 	-b:a 64k \
-            # 	out1.mp4
-            if os.path.exists(os.path.join(args.stills,still_map[idx])) and \
-                os.path.exists(os.path.join(args.audio,audio_map[idx])):
+                # Generate the introductory slide
+                # ffmpeg -r 30 \
+                #   -loop 1 
+                #   -i 2.3-Python_the_Basics_1_1280x720.png \
+                #   -i 2.3-1.m4a \
+                # 	-c:v libx264 -tune stillimage -shortest -pix_fmt yuv420p \
+                # 	-b:a 64k \
+                # 	out1.mp4
+
+                if os.path.exists(os.path.join(args.stills,still_map[idx])) and \
+                    os.path.exists(os.path.join(args.audio,audio_map[idx])):
+                    cmd = ''
+                    cmd += f'ffmpeg -hide_banner -y -r 30 -loop 1 \\\n'
+                    cmd += f'-i {re.escape(os.path.join(args.stills,still_map[idx]))} \\\n'
+                    cmd += f'-i {re.escape(os.path.join(args.audio,audio_map[idx]))} \\\n'
+                    cmd += f'-c:v libx264 -tune stillimage -shortest -pix_fmt yuv420p \\\n'
+                    cmd += f'-b:a 64k \\\n'
+                    cmd += f'{os.path.join(args.merge,still_map[idx].replace(".png",".mp4"))}'
+                    #print(f"  o {cmd}")
+                    call(cmd, shell=True)
+                    
+                    print(f"  + Slide {idx} generated.")
+            elif video_map[idx].endswith('.mp4'):
+                print(f"  + Found MP4 file to include {idx}:{video_map[idx]}")
+                # Transcode to the correct format
                 cmd = ''
-                cmd += f'ffmpeg -hide_banner -y -r 30 -loop 1 \\\n'
-                cmd += f'-i {re.escape(os.path.join(args.stills,still_map[idx]))} \\\n'
-                cmd += f'-i {re.escape(os.path.join(args.audio,audio_map[idx]))} \\\n'
-                cmd += f'-c:v libx264 -tune stillimage -shortest -pix_fmt yuv420p \\\n'
+                cmd += f'ffmpeg -hide_banner -y -r 30 \\\n'
+                cmd += f'-i {re.escape(os.path.join(args.mp4,video_map[idx]))} \\\n'
+                cmd += f'-c:v libx264 -pix_fmt yuv420p \\\n'
                 cmd += f'-b:a 64k \\\n'
                 cmd += f'{os.path.join(args.merge,still_map[idx].replace(".png",".mp4"))}'
                 print(f"  o {cmd}")
@@ -166,7 +196,7 @@ if not args.quick:
                 
                 print(f"  + Slide {idx} generated.")
             else:
-                print(f"  - Unable to find both audio and still files for Slide [idx]")
+                print(f"  - Unable to find both audio and still files for Slide {idx}")
         except KeyError:
             print(f"  - Unable to match {idx}:{still_map[idx]} in audio_map")
             continue

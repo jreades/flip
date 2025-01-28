@@ -1,12 +1,25 @@
-# Rendering Pre-Recorded Lectures
+# About Flip
 
-## Installation
+Flip is a small utility — making use of open source software — designed to streamline the process of 'flipping' lectures built using open source presentation frameworks such as Reveal.js. At its heart, flip is performing the following tasks:
 
-For this you will need to have installed node, decktape, and ffmpeg.
+1. Converting each slide of an HTML/JavaScript-based presentation to a static PNG.
+2. Converting these PNGs into a video by synchronising the PNGs with a pre-recording audio track.
+3. Optionally generating intro- and outro-elements to make it easy to add a title slide and copyright notice.
+
+Provided you have already recorded the audio, these three tasks can be performed in one go, and because the intro and outro are dynamically generated, this can be performed much more quickly and easily than using a non-Command Line (CLI) tool such as Camtasia. Obviously, the feature set is also more limited than Camtasia, though there is scope to include video from other sources in the rendering pipeline.
+
+## Requirements
+
+For flip, you will need to have installed the following open source tools: `node`, `decktape` (a node application), and `ffmpeg` and `freetype`. More *general* information about each of tehse can be found on the respective sites:
+
+1. https://nodejs.org/en
+2. https://www.npmjs.com/package/decktape / https://github.com/astefanutti/decktape
+3. https://www.ffmpeg.org/
+4. https://freetype.org/
 
 ### Homebrew
 
-On a Mac, at least, it's probably best to have [Homebrew](https://docs.brew.sh/Installation) installed (anything else you're on your own) and then run:
+On a Mac it's easiest to make use of [Homebrew](https://docs.brew.sh/Installation) to manage the majority of the above:
 
 ```bash
 brew update
@@ -14,9 +27,7 @@ brew upgrade
 brew cleanup
 ```
 
-Homebrew is generally useful, so you may already have it installed.
-
-### Node and Decktape
+#### Node and Decktape
 
 To create the stills we need to export the Quarto presentations to PNG files using [decktape](https://github.com/astefanutti/decktape), which is a node (hisssss!) application. To install:
 
@@ -26,7 +37,7 @@ npm install -g decktape
 which decktape
 ```
 
-### ffmpeg
+#### ffmpeg
 
 `ffmpeg` is the tool we'll be using to assemble the audio and video tracks into a working MP4 recording. You *should* find that installing `ffmpeg` also installs `ffprobe`, which we need to work out the length of some audio tracks.
 
@@ -38,6 +49,21 @@ brew install ffmpeg
 [Programming Historian](https://programminghistorian.org/) has a useful [Introduction to ffmpeg](https://programminghistorian.org/en/lessons/introduction-to-ffmpeg#basic-structure-and-syntax-of-ffmpeg-commands). It doesn't cover this use case but it is nonetheless a nice orientation to the basic structure of ffmpeg commands. See also: [Demystifying ffmpeg](https://github.com/privatezero/NDSR/blob/master/Demystifying_FFmpeg_Slides.pdf), the [ffmpeg Presentation](https://docs.google.com/presentation/d/1NuusF948E6-gNTN04Lj0YHcVV9-30PTvkh_7mqyPPv4/present?ueb=true&slide=id.g2974defaca_0_231) and [ffmpeg Wiki](https://trac.ffmpeg.org/wiki/WikiStart) alongside [the documentation](https://www.ffmpeg.org/ffmpeg.html). 
 
 ## Generating the Assets
+
+### Structure
+
+There are seven scripts, but *normally* only some of them are called directly:
+
+- `process.py` — all-in-one script to do everything when you are confident of having an effective workflow and all of the configuration parameters configured correctly.
+- `extract_deck.py` — script used to extract an HTML/JS-based presentation to a series of PNG images. Can be called directly during development/testing, but normally called from `process.py`.
+- `extract_audio.py` — script used to extract a set of M4A files from a source M4A track (chosen for simplicity). It will look in an `audio_segments.md` file for a header that matches the filename of the talk and use the markdown table immediately below that to select start/stop positions.
+- `merge.py` — script used to merge PNGs and M4A audio track into a single output MP4 file that is ready for posting online. Can be run separately to test output prior to scaling the process to module/course level.
+- `intro.py` – script used to create an 'intro' movie clip that can replace the 'Welcome' slide in a typical presentation. This makes use of the classes provided by `ffmpeg.py` to make it a bit easier to interact with ffmpeg when rendering dynamic content.
+- `outry.py` – script used to create the 'outro' equivalent of the introductory clip. Generally, it's fading out and showing copyright, thanks, or other relevant material.
+
+Because everything here is scriptable, you could create a shell script to (re)generate the videos for each and every flipped lecture in a module/course. This could be particularly useful for bulk-updates (such as a change of year, copyright notice, or name). 
+
+A 'perk' here is that by making it easy to embed the the year this helps to protect the academic from the re-use of their materials: students might rightly ask why they are being shown content from two or more years ago.
 
 ### All in One
 
@@ -95,9 +121,9 @@ python flip/extract.py -t 3.4-Functions -s https://jreades.github.io/fsds/lectur
 
 There are only two parameters:
 
-```
+```bash
   -h, --help            show this help message and exit
-  -t TALK, --talk TALK  The folder name with the talk.
+  -t TALK, --talk TALK  The folder name of the talk.
   -s SERVER, --server SERVER
                         Where to access the Reveal.js slides
 ```
@@ -106,21 +132,45 @@ The talks will be exported to `_export/{talk}` with one PNG file per slide in th
 
 ### Exporting Audio
 
-Audio can be captured however you like, but you will then be segmenting and exporting the source recording into a single M4A file so that `export_audio.py` can then pull out the tracks. [OcenAudio](https://www.ocenaudio.com/en) seems to be able to do this quite effectively and quickly if you want to stick to FOSS.
+Audio can be captured however you like, but [OcenAudio](https://www.ocenaudio.com/en) seems to be able to do this quite effectively and quickly if you want to stick to FOSS. I particularly appreciated the availability of VST plugins that could be used here, such as, [AconDigital’s Extract:Dialogue](https://acondigital.com/products/extract-dialogue).
 
-#### Setting up Segments in a Markdown Table
+#### Audio Capture
 
-The best way to allow for the recording to be flexible exported as a set of numbered and named files is to set up your own labels in a markdown table:
+I've assumed that the simplest way to capture the audio needed for a flipped teaching session is as a single file: this allows you to get into the 'flow' and then worry about tidying things up later. So your workflow for audio capture would most often be:
 
-The format of the table is reasonably important, including the header that appears immediately before the start of the table. The 'title' for the table should match the `-t` switch passed in to `process.py` (or to `merge.py` if you're running the constituent scripts separately).
+1. Set up your audio recording equipment.
+2. Record your talk.
+3. Save the audio file to the requisite `flip` folder.
 
-**Note**: if you want to skip a slide, simply skip over that number in the `sequence` column of the markdown table. `merge.py` will use the integer id of the PNGs and exported M4A segments to 'zip' up the parts into a movie.
+This audio file is presumed to provide the source for each paired audio+PNG segment, so the next thing is to tell `flip` how to perform this task.
+
+#### Setting up Audio Segments
+
+To allow for all of the information required to manage a complete module/course to be saved in one area, `flip` uses a Markdown file where the headers-of-interest are assumed to match the filename of the talk (so the same as the `talk` parameter provided to `decktape`) and a table underneath that provides the timings, sequencing, and name for each.
+
+So the format of the table is important, and this **includes** the format of the header that appears immediately before the start of the table. The 'title' for the table should match the `-t` switch passed in to `process.py` (or to `merge.py` if you're running the constituent scripts separately). For example:
+
+
+
+```markdown
+## 2.3-Python the Basics
+
+| Start   | End     | Sequence | Name         |
+| ------- | ------- | -------- | ------------ |
+| 0:00.00 | 0:41.11 | 1        | Introduction |
+| 0:41.11 | 1:23.07 | 2        | Variables    |
+| 1:23.07 | 3:41.05 | 4        | Types        |
+| 3:41.05 | 5:49.08 | 5        | Change That  |
+```
+
+**Note**: as in the example above, if you want to skip a slide from your talk, simply skip over that number in the `sequence` column of the markdown table (3 is ommitted here). `merge.py` will use the integer id of the PNGs and exported M4A segments to 'zip' up the parts into a movie.
 
 Some tips:
 
 - Individual audio segments can be set to start and end at any valid timestamp within the M4A file.
 - By extension, you could repeat the same piece of audio multiple times if you wanted.
-- However, from experience I *can* say that setting the stop time of one segment and the start time of the following segment to the *exact* same time is likely to lead to juddering audio effects. It's best to offset the start time by a millisecond.
+
+However, from experience I *can* say that setting the stop time of one segment and the start time of the following segment to the *exact* same time is likely to lead to juddering audio effects. It's best to offset the start time by a millisecond.
 
 #### Noise Reduction
 
@@ -136,7 +186,7 @@ If your recording levels are low and/or you discover noise in the recording afte
 
 ## Generating the Movie
 
-So assuming that you have your exported audio in `_audio/{talk}` and your exported stills in `_export/{talk}` then you are ready to `merge` these sources into a finished video. Basic usage would be:
+So now that you have your exported audio in `_audio/{talk}` and your exported stills in `_export/{talk}` then you are ready to `merge` these sources into a finished video. Basic usage would be:
 
 ```bash
 merge.py [-h] [-n NAME] [-t TALK] [-o OUTPUT] [-f] [-q]
@@ -169,52 +219,3 @@ This script does five things:
 5. Trims out the first 0.075 seconds of the merged video since, for some reason, this is always a black screen.
 
 The results are exported to `_merged/{talk}.mp4` and this is the final output that can be uploaded to Streams, YouTube, whatever.
-
-## To Dos
-
-- [ ] Move many of the assumptions about output directories and sources to a separate config.py file so that these can be easily changed and also don't have to be configured individually in each script.
-- [X] Allow the user to include an existing MP4 file (e.g. 'fireside chat' type thing) that is inserted into the sequence of segments such that you can fade out of the lecture slides to a video of the lecturer talking and then fade back into the next slide in the sequence.
-- [ ] Expand the OO-aspect used by `intro.py` and `outro.py` so as to make it easier to set upmore complex effects and on-the-fly rendering of elements.
-- [ ] Allow a 'talking head' type thing to be overlayed across all slides (e.g. this recording of me talking in green-screened in to the lower-right corner along with the PNG background).
-- [ ] Allow for slide transitions to be simulated in ffmpeg using filters.
-
-### Adding Filters
-
-I think I'll need to this later: [see docs](https://trac.ffmpeg.org/wiki/FilteringGuide).
-
-Ooooh, and a [cheatsheet](https://gist.github.com/martinruenz/537b6b2d3b1f818d500099dde0a38c5f)
-
-Consider also adding filters on audio and video channeles:
-
-- `atadenoise` denoising [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-atadenoise)
-- `blend` for blending one layer into another (watermarking?) [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-blend-1)
-- `chromakey` for green-screening [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-blend-1) (also has useful thing for overlaying on a static black background)
-- `colorize` is  [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-colorize)
-- `colortemperature` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-colortemperature)
-- `coreimage` to make use of Apple's CoreImage API [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-coreimage-1)
-- `crop` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-crop)
-- `dblur` for directional blur could be fun on intro/outro [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-dblur)
-- `decimate` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-decimate-1)
-- `displace` (probably a bad idea but...) is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-displace)
-- `drawtext` (for writing in date/year) is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-drawtext-1) (requires libfreetype)
-- `fade` (to fade-in/out the input video) is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-fade)
-- `frames per second` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-fps-1) not sure how it differs from [framerate](https://www.ffmpeg.org/ffmpeg-filters.html#toc-framerate)
-- `Gaussian blur` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-gblur)
-- `Hue/saturation/intensity` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-huesaturation)
-- `Colour adjustment` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-Color-adjustment)
-- `Loop` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-loop)
-- `Monochrome` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-monochrome) and could be used with colourisation on live video, for instance
-- `Normalise` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-normalize) for mapping input histogram on to output range
-- `Overlay` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-overlay-1) and will be useful for adding an intro/outro
-- `Perspective correction` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-perspective)
-- `Scale` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-scale-1) to rescale inputs.
-- `Trim` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-trim)
-- `Variable blur` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-varblur) and could be useful for background blurring behind a talking head.
-- `Vibrance` to increase/change saturation is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-vibrance)
-- `Vstack` as faster alternative to Overlay and Pad is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-vstack)
-- `Xfade` to perform cross-fading between input streams is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-xfade)
-- `Zoom` and `pan` is [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-zoompan)
-
-Currently available video sources are [here](https://www.ffmpeg.org/ffmpeg-filters.html#toc-Video-Sources)
-
-<a rel="me" href="https://mapstodon.space/@jreades">Mastodon</a>
