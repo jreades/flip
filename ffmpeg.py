@@ -1,3 +1,20 @@
+class textblock:
+    lines = list()
+    x     = str()
+    y     = str()
+    size  = int()
+    color = str()
+    font  = str()
+    style = str()
+
+    def __init__(self, txt:str, halign:str="center", valign:str="middle", size:int=12, font:str="Hanken Grotesk", style:str="Regular"):
+        self.lines = list(txt.split("\\n"))
+        self.size = size
+        self.h_align = halign
+        self.v_align = valign
+        self.font = font
+        self.style = style
+
 class overlay: 
     
     def __init__(self, x:str, y:str, shortest:bool):
@@ -83,25 +100,23 @@ class outro(scene):
         return f'color={self.color}:s={"x".join([str(x) for x in list(self.size)])}'
 
 class text:
-    font  = "Barlow"
-    color = "4f3d57"
-    fader    = None
 
-    def __init__(self, text:str, x:str, y:str, size:int):
+    fader = None
+
+    def __init__(self, text:str, x:str, y:str, size:int, color:str, 
+                 font:str, style:str="Regular"):
         self.label = text
         self.x = x
         self.y = y
         self.size = size
+        self.font = font
+        self.color = color
+        self.style = style
 
     def add_fader(self, f:txt_fade):
         self.fader = f
 
     def __repr__(self):
-        return f"drawtext=font='{self.font}':text='{self.label}':" \
+        return f"drawtext=fontfile='{self.font}\\:style={self.style}':text='{self.label}':" \
              + f"fontcolor={self.color}:fontsize={self.size}:x={self.x}:y={self.y}" \
              + (f":alpha='{str(self.fader)}'," if self.fader else "")
-
-
-#SHOWLEN=0.75+$STARTIN+$FADEIN
-#STOPAT=$SHOWLEN+$FADEOUT
-#INTROLEN=$STOPAT+0.05
