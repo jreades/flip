@@ -1,5 +1,5 @@
 ######################
-# Generate an intro animation with the appropriate
+# Generate an scene animation with the appropriate
 # title for the lecture.
 ######################
 import argparse, tomllib
@@ -13,10 +13,10 @@ parser = argparse.ArgumentParser(
                     prog='Intro Slide Generator',
                     description='Generates a title slide for a lecture with the module name and CASA logo showing first.',
                     epilog='Text at the bottom of help')
-parser.add_argument('-d', '--defaults', type=str, help="Path to the intro.toml configuration file.")
-parser.add_argument('-l', '--length', type=float, help="The length of the intro slide talk.")
+parser.add_argument('-d', '--defaults', type=str, help="Path to the scene.toml configuration file.")
+parser.add_argument('-l', '--length', type=float, help="The length of the scene slide talk.")
 parser.add_argument('-t', '--talk', type=str, help="The title of the talk, for multi-line separate with \\n")
-parser.add_argument('-o', '--output', type=str, help="Name of the ouptut MP4 file.", default=Path('_mp4/intro.mp4'))
+parser.add_argument('-o', '--output', type=str, help="Name of the ouptut MP4 file.", default=Path('_mp4/scene.mp4'))
 
 args = parser.parse_args()
 
@@ -65,12 +65,6 @@ print(f"+ Running length at {run_len:0.2f}.\n")
 ############################
 # Start with the image elements
 ############################
-
-# Set up the overall 'scene'
-intro = intro(run_len)
-intro.color = conf['bg'].get('color', '000000')
-filters['bg'] = f'{str(intro)}'
-
 def build_filter(pos:int=0, conf:dict={}) -> str:
     str = f'[{len(filters)-1}:v] '
     if conf.get('scale', None) != None:
@@ -79,10 +73,15 @@ def build_filter(pos:int=0, conf:dict={}) -> str:
         str += f'colorchannelmixer=aa={conf["alpha"]}, '
     return str
 
+# Set up the overall 'scene'
+scene = scene(run_len)
+scene.color = conf['bg'].get('color', '000000')
+filters['bg'] = f'{str(scene)}'
+
 # Image overlays
 if conf['bgimg'].get('has', False) and Path(conf['bgimg']['path']).exists():
     print(f"+ Found background image {conf['bgimg']['path']}")
-    cmd.append(f'-loop 1 -i {conf["bgimg"]["path"]} -t {intro.length}')
+    cmd.append(f'-loop 1 -i {conf["bgimg"]["path"]} -t {scene.length}')
 
     # Build the filter for the background image
     bi = img_fade(True, fil, stfi)
@@ -93,7 +92,7 @@ if conf['bgimg'].get('has', False) and Path(conf['bgimg']['path']).exists():
 
 if conf['logo'].get('has', False) and Path(conf['logo']['path']).exists():
     print(f"+ Found logo image {conf['logo']['path']}")
-    cmd.append(f'-loop 1 -i {conf["logo"]["path"]} -t {intro.length}')
+    cmd.append(f'-loop 1 -i {conf["logo"]["path"]} -t {scene.length}')
 
     # Build the filter for the logo image
     fi = img_fade(True, fil, stfi)
@@ -106,7 +105,7 @@ if conf['logo'].get('has', False) and Path(conf['logo']['path']).exists():
 
 if conf['copyright'].get('has', False) and Path(conf['copyright']['path']).exists():
     print(f"+ Found copyright image {conf['copyright']['path']}")
-    cmd.append(f'-loop 1 -i {conf["copyright"]["path"]} -t {intro.length}')
+    cmd.append(f'-loop 1 -i {conf["copyright"]["path"]} -t {scene.length}')
 
     # Build the filter for the logo image
     fi = img_fade(True, fil, stfi)
@@ -123,7 +122,6 @@ cmd.append(f'-filter_complex "') # That double-quote is important!
 for f,v in filters.items():
     cmd.append(f'{v} [{f}];')
 
-last_filter = None
 # Now we have to combine the filters
 all_filters = list(filters.keys())
 for f in range(1, len(all_filters)):
@@ -132,8 +130,6 @@ for f in range(1, len(all_filters)):
         cmd[-1] = cmd[-1].replace(f'[f{f-1}]', f'[{all_filters[f-1]}]') # first one is different
     if f==len(all_filters)-1:
         cmd[-1] = cmd[-1].replace(f'[f{f}];', ',') # remove the trailing semicolon
-
-print(" \\\n".join(cmd))
 
 ############################
 # Now add the text elements

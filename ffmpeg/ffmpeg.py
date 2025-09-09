@@ -196,26 +196,14 @@ class cross_fader(txt_fade):
 
 
 class scene: 
-    rate  = 30 # fps
-    size  = (1280,720)
-    color = "white"
 
     length   = None
 
-class intro(scene):
-
-    def __init__(self, scl:float):
+    def __init__(self, scl:float, color:str="black", size:tuple=(1280,720), rate:int=30):
         self.length   = scl
-
-    def __repr__(self):
-        return f'color={self.color}:s={"x".join([str(x) for x in list(self.size)])}'
-
-class outro(scene):
-
-    color="black"
-
-    def __init__(self, scl:float):
-        self.length   = scl
+        self.color    = color
+        self.size     = size
+        self.rate     = rate
 
     def __repr__(self):
         return f'color={self.color}:s={"x".join([str(x) for x in list(self.size)])}'

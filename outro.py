@@ -2,26 +2,43 @@
 # Generate an intro animation with the appropriate
 # title for the lecture.
 ######################
-import argparse
+import argparse, tomllib
 from subprocess import call
 from ffmpeg import *
 import os
+from pathlib import Path
 
-this_year = 2024
-logo_url = os.path.join('img','CASA_Logo_Light_with_text.png')
+DEBUG = False
 
 parser = argparse.ArgumentParser(
                     prog='Outro Slide Generator',
                     description='Generates a tail slide for a lecture with the CASA logo and copyright.',
                     epilog='Text at the bottom of help')
+parser.add_argument('-d', '--defaults', type=str, help="Path to the intro.toml configuration file.")
 parser.add_argument('-l', '--length', type=float, help="The length of the talk.", default=3)
-parser.add_argument('-o', '--output', type=str, help="Name of the ouptut MP4 file.", default=os.path.join('_mp4','outro.mp4'))
+parser.add_argument('-o', '--output', type=str, help="Name of the ouptut MP4 file.", default=Path('_mp4/outro.mp4'))
 
 args = parser.parse_args()
 
-os.makedirs(os.path.dirname(args.output), exist_ok=True)
+Path('_mp4').mkdir(exist_ok=True)
 
-fol  = 1.2 # fade out length
+if args.defaults != None and Path(args.defaults).exists():
+    with open(args.defaults, 'rb') as f:
+        conf = tomllib.load(f)
+
+os.makedirs(Path(args.output).parent, exist_ok=True)
+
+# Determine lengths:
+# - lfi == lecture fade in
+# - stfi == start fade in
+# - fil  == fade in length
+# - stfo == start fade out
+# - fol  == fade out length
+# - run_len == total length of video
+stfi = conf['timings']['start_fade_in']
+fil  = conf['timings']['fade_in_duration']
+stfo = conf['timings']['start_fade_out']
+fol  = conf['timings']['fade_out_duration']
 
 if args.length != None and args.length > 0:
     stfo = args.length - (fol + 0.1) # lecture fade out
@@ -30,49 +47,140 @@ else:
     stfo = 0.175
     running_len  = stfo + fol + 0.1 # lecture fade out
 
-# Set up scene
-i = outro(running_len)
+if DEBUG:
+    print(f"- Start fade in at {stfi:0.2f} for {fil:0.2f}s")
+    print(f"- Start fade out at {stfo:0.2f} for {fol:0.2f}s")
+    print(f"- Running length at {running_len:0.2f}s")
+
+# Start building the command
+cmd      = [f'ffmpeg -hide_banner -y']
+filters  = {}
+overlays = {}
 
 print(f"""Video details:
     Fully visible until {stfo:0.2f}
     Start fade out at {stfo:0.2f} and fade out for {fol:0.2f}.""")
 print(f"Running length {running_len:0.2f}.\n")
 
-# Logo fading
+############################
+# Common faders here
+############################
 fo  = img_fade(False, fol, stfo)
 tfo = txt_fade(False, fol, stfo)
 
-logo = overlay('main_w/2-overlay_w/2', 'main_h/2-overlay_h/2.4', True)
+############################
+# Start with the image elements
+############################
+def build_filter(pos:int=0, conf:dict={}) -> str:
+    str = f'[{len(filters)-1}:v] '
+    if conf.get('scale', None) != None:
+        str += f'scale={conf["scale"]}, '
+    if conf.get('alpha', None) != None:
+        str += f'colorchannelmixer=aa={conf["alpha"]}, '
+    return str
 
-yr = text(f"{this_year}/{this_year+1}", '(w-text_w)/2', '(h/2-text_h*5)', 24)
-copy = text(f"CC-BY-NC-SA {this_year} Jon Reades", '(w-text_w)/2', '(h/2+80)', 12) # *6 on large monitors????
-yr.color = "white"
-copy.color = "white"
-yr.add_fader(tfo)
-copy.add_fader(tfo)
+# Set up the overall 'scene'
+scene = scene(running_len)
+scene.color = conf['bg'].get('color', '000000')
+filters['bg'] = f'{str(scene)}'
 
-params = {
-    'bg': str(i),
-    'logo': f'[0:v] {fo}'
-}
+# Image overlays
+if conf['bgimg'].get('has', False) and Path(conf['bgimg']['path']).exists():
+    print(f"+ Found background image {conf['bgimg']['path']}")
+    cmd.append(f'-loop 1 -i {conf["bgimg"]["path"]} -t {scene.length}')
 
-# Note use of the nullsrc audio filter (via lavfi) -- 
-# we need this to ensure that the outro segment always
-# matches the other segments in terms of configuration
-# on both audio and video channels.
-cmd = ''
-cmd += f'ffmpeg -hide_banner -y -loop 1 -i {logo_url} -f lavfi -i anullsrc=r=44100:cl=stereo:d={args.length}:n=64000 -t {i.length} -filter_complex "\\\n'
-for p,v in params.items():
-    cmd += f'{v} [{p}]; \\\n'
-cmd += f'[bg][logo] {logo}, \\\n'
-cmd += str(yr) + f" \\\n"
-cmd += str(copy) + f" \\\n"
-cmd += f'" -r 30 -c:v libx264 -c:a aac \\\n'
-cmd += f'-shortest -pix_fmt yuv420p -tune stillimage {args.output}\n'
+    # Build the filter for the background image
+    filters['bgimg'] = f'{build_filter(len(filters), conf["bgimg"])} {fo}'
 
-#print(f"  -i {cmd}")
-call(cmd, shell=True)
+    overlays['bgimg'] = overlay('0', '0', True)
 
-#ffmpeg -i Test.mp4 -itsoffset 00:00:02 -i fanfare-1.m4a -map 0:0 -map 1:0 -c:v copy -async 1 out.mp4
+if conf['logo'].get('has', False) and Path(conf['logo']['path']).exists():
+    print(f"+ Found logo image {conf['logo']['path']}")
+    cmd.append(f'-loop 1 -i {conf["logo"]["path"]} -t {scene.length}')
+
+    # Build the filter for the logo image
+    filters['logo'] = f'{build_filter(len(filters), conf["logo"])} {fo}'
+
+    x = img_position.x(conf['logo'].get('x',0))
+    y = img_position.y(conf['logo'].get('y',0))
+    overlays['logo'] = overlay(x, y, True)
+
+if conf['copyright'].get('has', False) and Path(conf['copyright']['path']).exists():
+    print(f"+ Found copyright image {conf['copyright']['path']}")
+    cmd.append(f'-loop 1 -i {conf["copyright"]["path"]} -t {scene.length}')
+
+    # Build the filter for the logo image
+    filters['copy'] = f'{build_filter(len(filters), conf["copyright"])} {fo}'
+
+    x = img_position.x(conf['copyright'].get('x',0))
+    y = img_position.y(conf['copyright'].get('y',0))
+    overlays['copy'] = overlay(x, y, True)
+
+# Add null audio track
+cmd.append(f'-f lavfi -i anullsrc=r=44100:cl=stereo:d={running_len}:n=64000')
+
+# Now add the filters
+cmd.append(f'-filter_complex "') # That double-quote is important!
+
+for f,v in filters.items():
+    cmd.append(f'{v} [{f}];')
+
+last_filter = None
+# Now we have to combine the filters
+all_filters = list(filters.keys())
+for f in range(1, len(all_filters)):
+    cmd.append(f'[f{f-1}][{all_filters[f]}] {overlays[all_filters[f]]} [f{f}];')
+    if f==1:
+        cmd[-1] = cmd[-1].replace(f'[f{f-1}]', f'[{all_filters[f-1]}]') # first one is different
+    if f==len(all_filters)-1:
+        cmd[-1] = cmd[-1].replace(f'[f{f}];', ',') # remove the trailing semicolon
+
+############################
+# Now add the text elements
+############################
+
+# Year for talk
+if conf['year'].get('text', None) != None:
+    try:
+        txt = f"{int(conf['year']['text'])}/{int(conf['year']['text'])+1}"
+    except:
+        txt = conf['year']['text']
+
+    x = txt_position.x(conf['year'].get('x',0))
+    y = txt_position.y(conf['year'].get('y',0))
+    #y = f"{ymin} - ({(conf['lecture']['size'] * conf['fonts']['leading'] * 0.55):0.0f})" 
+    
+    yr = text(txt, x, y, 
+            size=conf['year']['size'], color=conf['fonts']['fontcolor_light'], 
+            font=conf['fonts']['fontface'], style=conf['year']['style'], 
+            halign=conf['year']['halign'], valign=conf['year']['valign'])
+    yr.add_fader(tfo)
+    cmd.append(str(yr))
+
+# Copyright line
+if conf['author'].get('text', None) != None:
+    txt = f"{conf['author']['text']}"
+
+    x = txt_position.x(conf['author'].get('x',0))
+    y = txt_position.y(conf['author'].get('y',0))
+    #y = f"{ymax} + ({(conf['lecture']['size'] * conf['fonts']['leading'] * 0.90):0.0f})" 
+
+    author = text(txt, x, y, 
+                size=conf['author']['size'], color=conf['fonts']['fontcolor_light'], 
+                font=conf['fonts']['fontface'], style=conf['author']['style'],
+                halign=conf['author']['halign'], valign=conf['author']['valign'])
+    author.add_fader(tfo)
+    cmd.append(str(author))
+
+cmd.append(f'" -r 30 -c:v libx264 -c:a aac -shortest') # That double-quote is important!
+cmd.append(f'-pix_fmt yuv420p -tune stillimage')
+cmd.append(f'{args.output}')
+
+if DEBUG != False:
+    print("=" * 30)
+    print(" \\\n".join(cmd))
+    print("=" * 30)
+
+call(" \\\n".join(cmd), shell=True)
 
 exit()
