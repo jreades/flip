@@ -3,6 +3,8 @@ _audio/
 _export/
 _output/
 _merge/
+_mp4/
+_m4a/
 *.mp4
 *.m4a
 *.png
