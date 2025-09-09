@@ -1,10 +1,12 @@
 ######################
 # Take a lecture narration and extract it to a set of M4A files (one per slide). 
 ######################
-import argparse
+import argparse, tomllib
 from pydub import AudioSegment
 from subprocess import call
 import os, re, glob
+
+DEBUG = False
 
 ppath = os.path.join(os.path.expanduser("~"),"anaconda3","envs","sds","bin")
 
@@ -12,7 +14,9 @@ parser = argparse.ArgumentParser(
                     prog='Audio Segment Generator',
                     description='Generates a set of audio segments from a single m4a file. Requires Audacity to be installed and running.',
                     epilog='For example: `python ffmpeg/extract_audio.py -t 6.2-Randomness`')
-parser.add_argument('-t', '--talk', type=str, help="The file name of the talk (this needs to match both in the audio_segments.md file and the M4A file).")
+parser.add_argument('-s', '--src', type=str, help="The path of the audio source file.")
+parser.add_argument('-f', '--file', type=str, help="The file name of the Markdown file where the segment metadata is stored.")
+parser.add_argument('-t', '--talk', type=str, help="The file name of the talk (this needs to match a heading in the segments file).")
 
 args = parser.parse_args()
 
@@ -39,13 +43,19 @@ else:
 
 ######################
 # Find the appropriate metadata
-print(f"+ Finding segment metadata in Markdown file.")
+print(f"+ Finding segment metadata in the Markdown file.")
+
+if os.path.exists(args.file):
+    print(f"  + Found {args.file}")
+else:
+    print(f"  - Couldn't find {args.file}")
+    exit()
 
 audio_meta = []
 loading    = False
 
 header_remove = re.compile('^## ')
-with open(os.path.join('ffmpeg','audio_segments.md'), 'r') as f:
+with open(os.path.join(args.segments), 'r') as f:
     for i in f.readlines():
         txt = i.strip()
         if txt.startswith('## '):
@@ -85,10 +95,7 @@ print(f"  + Data structure created.")
 # from the metadata, and save to segments.
 print(f"+ Preparing to extract audio.")
 
-audio_root = '/Users/jreades/Library/CloudStorage/OneDrive-UniversityCollegeLondon/CASA0013/Audio'
-#audio_root = os.path.expanduser("~"),'Desktop','Audio'
-
-audio_src = os.path.join(audio_root,args.src+'.m4a')
+audio_src = os.path.join(args.src)
 if not os.path.exists(audio_src):
     print(f"Couldn't find file: {audio_src}")
     exit()

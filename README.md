@@ -93,10 +93,10 @@ The parameters are:
   -n NAME, --name NAME  The name of the talk, for multi-line separate with \n
   -s SERVER, --server SERVER
                         Where to access the Reveal.js slides
-  -d, --exportdeck      Skip export of the slide deck to PNG (useful when you are mucking about with the audio and output).
-  -a, --exportaudio     Skip export of the audio files to M4A (useful when you are mucking about with the audio and output).
+  -d, --exportdeck      Export the slide deck to PNG (turning this option off is useful when you are mucking about with the audio and output).
+  -a, --exportaudio     Export the audio source to M4A (turning this option off is useful when you are mucking about with the stills and output).
   -f, --force           Force generation of video even if number of slides and audio segments doesn't match.
-  -q, --quick           Quick generation (assumes MP4 segments haven't changed).
+  -q, --quick           Quick (re)generation (assumes MP4 segments haven't changed).
 ```
 
 ### Exporting Stills
@@ -150,8 +150,6 @@ To allow for all of the information required to manage a complete module/course 
 
 So the format of the table is important, and this **includes** the format of the header that appears immediately before the start of the table. The 'title' for the table should match the `-t` switch passed in to `process.py` (or to `merge.py` if you're running the constituent scripts separately). For example:
 
-
-
 ```markdown
 ## 2.3-Python the Basics
 
@@ -174,7 +172,9 @@ However, from experience I *can* say that setting the stop time of one segment a
 
 #### Noise Reduction
 
-If your recording levels are low and/or you discover noise in the recording after the fact then you can remove background noise in Ocen (or Audacity if you still use that) in the following manner:
+If your recording levels are low and/or you discover noise in the recording after the fact then you can remove background noise in Ocen Audio. 
+
+Or in Audacity, if you still use that, you can do it in the following manner:
 
 1. Select (using the 'I'-like selection tool) a region of the recording that has no speech in it.
 2. Select `Effect` > `Noise Remove and Repair` > `Noise Reduction...`.

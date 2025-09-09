@@ -1,27 +1,9 @@
-class textblock:
-    lines = list()
-    x     = str()
-    y     = str()
-    size  = int()
-    color = str()
-    font  = str()
-    style = str()
-
-    def __init__(self, txt:str, halign:str="center", valign:str="middle", size:int=12, font:str="Hanken Grotesk", style:str="Regular"):
-        self.lines = txt.split("\n") if "\n" in txt else [txt]
-        self.size = size
-        self.h_align = halign
-        self.v_align = valign
-        self.font = font
-        self.style = style
-        self.position = position(0, 0)
-
 class position:
 
     def __init__(self, x:float, y:float):
 
-        self.x = x
-        self.y = y
+        self._x = x
+        self._y = y
     
     def get_x(self):
         raise NotImplementedError(
@@ -36,7 +18,7 @@ class position:
     def __repr__(self):
         return f'x={self.get_x()}:y={self.get_y()}'
 
-class tposition(position):
+class txt_position(position):
 
     # Notice!!!! Bottom-left is (0,0) in ffmpeg
     # But not seemingly for drawtext???
@@ -50,29 +32,51 @@ class tposition(position):
     bottom = '(main_h-text_h)'
 
     def get_x(self):
-        if self.x == 0:
+        if self._x == 0:
             return(f"{self.left}")
-        elif self.x == 0.5:
+        elif self._x == 0.5:
             return(f"{self.center}")
-        elif self.x == 1:
+        elif self._x == 1:
             return(f"{self.right}")
         else:
-            return(f"(main_w*{self.x:0.2f})")
+            return(f"(main_w*{self._x:0.2f})")
+
+    @classmethod
+    def x(cls, x:float):
+        if x == 0:
+            return(f"{cls.left}")
+        elif x == 0.5:
+            return(f"{cls.center}")
+        elif x == 1:
+            return(f"{cls.right}")
+        else:
+            return(f"(main_w*{x:0.4f})")
 
     def get_y(self):
-        if self.y == float(0):
+        if self._y == float(0):
             return(f"{self.bottom}")
-        elif self.y == float(0.5):
+        elif self._y == float(0.5):
             return(f"{self.middle}")
-        elif self.y == float(1):
+        elif self._y == float(1):
             return(f"{self.top}")
         else:
-            return(f"(main_h*{self.y:0.4f})") # -(text_h/2)
+            return(f"(main_h*{self._y:0.4f})") # -(text_h/2)
+
+    @classmethod
+    def y(cls, y:float):
+        if y == float(0):
+            return(f"{cls.bottom}")
+        elif y == float(0.5):
+            return(f"{cls.middle}")
+        elif y == float(1):
+            return(f"{cls.top}")
+        else:
+            return(f"(main_h*{y:0.4f})") # -(text_h/2)
 
     def __init__(self, x:float, y:float):
         super().__init__(x, y)
 
-class iposition(position):
+class img_position(position):
 
     # Notice!!!! Bottom-left is (0,0) in ffmpeg
     # But not seemingly for drawtext???
@@ -86,26 +90,49 @@ class iposition(position):
     top   = '(main_h-overlay_h)'
 
     def get_x(self) -> str:
-        if self.x == 0:
+        if self._x == 0:
             return(f"{self.left}")
-        elif self.x == 0.5:
+        elif self._x == 0.5:
             return(f"{self.center}")
-        elif self.x == 1:
+        elif self._x == 1:
             return(f"{self.right}")
         else:
-            return(f"(main_w*{self.x:0.2f})")
+            return(f"(main_w*{self._x:0.2f})")
 
+    @classmethod
+    def x(cls, x:float) -> str:
+        if x == 0:
+            return(f"{cls.left}")
+        elif x == 0.5:
+            return(f"{cls.center}")
+        elif x == 1:
+            return(f"{cls.right}")
+        else:
+            return(f"(main_w*{x:0.4f})")
+    
     def get_y(self) -> str:
-        if self.y == 0:
+        if self._y == 0:
             return(f"{self.bottom}")
-        elif self.y == 0.5:
+        elif self._y == 0.5:
             return(f"{self.middle}")
-        elif self.y == 1:
+        elif self._y == 1:
             return(f"{self.top}")
         else:
             #return(f"(h+overlay_h/2)*{self.y:0.2f}")
-            return(f"(main_h*{self.y:0.4f})") # -(overlay_h/2)
+            return(f"(main_h*{self._y:0.4f})") # -(overlay_h/2)
 
+    @classmethod
+    def y(cls, y:float) -> str:
+        if y == 0:
+            return(f"{cls.bottom}")
+        elif y == 0.5:
+            return(f"{cls.middle}")
+        elif y == 1:
+            return(f"{cls.top}")
+        else:
+            #return(f"(h+overlay_h/2)*{y:0.2f}")
+            return(f"(main_h*{y:0.4f})")
+    
     def __init__(self, x:float, y:float):
         super().__init__(x, y)
 
@@ -206,8 +233,8 @@ class text:
         self.font = font
         self.color = color
         self.style = style
-        self.halign = halign if halign != "" else None
-        self.valign = valign if valign != "" else None
+        self.halign = halign if halign != "" else 'left'
+        self.valign = valign if valign != "" else 'center'
 
     def add_fader(self, f:txt_fade):
         self.fader = f

@@ -1,5 +1,9 @@
 # Rendering Lectures
 
+This document tracks my 'learning journey' (i.e. weeks of frustration) in trying to use `ffmpeg` to generate videos from a series of static images (exported from a slide deck) and a series of audio files (exported from a Zoom recording).
+
+Use the [README](README.md) to learn how to generate the movies.
+
 ### Installation
 
 ```bash
