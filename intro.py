@@ -2,16 +2,18 @@
 # Generate an intro animation with the appropriate
 # title for the lecture.
 ######################
-import argparse
+import argparse, tomllib
 from subprocess import call
 from ffmpeg import *
-from vparams import *
 from pathlib import Path
+
+DEBUG = False
 
 parser = argparse.ArgumentParser(
                     prog='Intro Slide Generator',
                     description='Generates a title slide for a lecture with the module name and CASA logo showing first.',
                     epilog='Text at the bottom of help')
+parser.add_argument('-d', '--defaults', type=str, help="Path to the intro.toml configuration file.")
 parser.add_argument('-l', '--length', type=float, help="The length of the intro slide talk.")
 parser.add_argument('-t', '--talk', type=str, help="The title of the talk, for multi-line separate with \\n")
 parser.add_argument('-o', '--output', type=str, help="Name of the ouptut MP4 file.", default=Path('_mp4/intro.mp4'))
@@ -20,6 +22,10 @@ args = parser.parse_args()
 
 Path('_mp4').mkdir(exist_ok=True)
 
+if args.defaults != None and Path(args.defaults).exists():
+    with open(args.defaults, 'rb') as f:
+        conf = tomllib.load(f)
+
 # Determine lengths:
 # - lfi == lecture fade in
 # - stfi == start fade in
@@ -27,6 +33,12 @@ Path('_mp4').mkdir(exist_ok=True)
 # - stfo == start fade out
 # - fol  == fade out length
 # - run_len == total length of video
+stfi = conf['timings']['start_fade_in']
+fil  = conf['timings']['fade_in_duration']
+stfo = conf['timings']['start_fade_out']
+fol  = conf['timings']['fade_out_duration']
+lfi  = stfo + (fol - fol/2) # crossfade
+
 if args.length != None and args.length > 0:
     lfo  = args.length - (fol + 0.1) # lecture fade out
     run_len = args.length
@@ -34,125 +46,216 @@ else:
     lfo  = stfo + fil + 1.0 # lecture fade out
     run_len = lfo + fol
 
-print(f"Start fade in at {stfi:0.2f} for {fil:0.2f}s")
-print(f"Start fade out at {stfo:0.2f} for {fol:0.2f}s")
-print(f"Lecture fade in at {lfi:0.2f}s")
-print(f"Lecture fade out at {lfo:0.2f}s")
-print(f"Running length at {run_len:0.2f}s")
+if DEBUG:
+    print(f"- Start fade in at {stfi:0.2f} for {fil:0.2f}s")
+    print(f"- Start fade out at {stfo:0.2f} for {fol:0.2f}s")
+    print(f"- Lecture fade in at {lfi:0.2f}s")
+    print(f"- Lecture fade out at {lfo:0.2f}s")
+    print(f"- Running length at {run_len:0.2f}s")
 
-# Set up scene
-intro = intro(run_len)
-intro.color = "42324a" # "#574d62" # dark purple
+# Start building the command
+cmd      = [f'ffmpeg -hide_banner -y'] #  \\\n
+filters  = {}
+overlays = {}
 
-print(f"+ Video details:\n\tStart fade in at {stfi:0.2f} and fade in for {fil:0.2f}\n\tFully visible from {(stfi+fil):0.2f} to {stfo:0.2f} ({stfo-(stfi+fil):0.2f}s)\n\tStart fade out at {stfo:0.2f} and fade out for {fol:0.2f}.")
-print(f"+ Talk details:\n\tStart fade in at {lfi:0.2f} and fade in for {fil:0.2f}\n\tFully visible from {(lfi+fil):0.2f} to {lfo:0.2f} ({lfo-(lfi+fil):0.2f}s)\n\tStart fade out at {lfo:0.2f} and fade out for {fol:0.2f}.")
+print(f"+ Module details:\n\tStart fade in at {stfi:0.2f} and fade in for {fil:0.2f}\n\tFully visible from {(stfi+fil):0.2f} to {stfo:0.2f} ({stfo-(stfi+fil):0.2f}s)\n\tStart fade out at {stfo:0.2f} and fade out for {fol:0.2f}.")
+print(f"+ Lecture details:\n\tStart fade in at {lfi:0.2f} and fade in for {fil:0.2f}\n\tFully visible from {(lfi+fil):0.2f} to {lfo:0.2f} ({lfo-(lfi+fil):0.2f}s)\n\tStart fade out at {lfo:0.2f} and fade out for {fol:0.2f}.")
 print(f"+ Running length at {run_len:0.2f}.\n")
 
+############################
+# Start with the image elements
+############################
+
+# Set up the overall 'scene'
+intro = intro(run_len)
+intro.color = conf['bg'].get('color', '000000')
+filters['bg'] = f'{str(intro)}'
+
+def build_filter(pos:int=0, conf:dict={}) -> str:
+    str = f'[{len(filters)-1}:v] '
+    if conf.get('scale', None) != None:
+        str += f'scale={conf["scale"]}, '
+    if conf.get('alpha', None) != None:
+        str += f'colorchannelmixer=aa={conf["alpha"]}, '
+    return str
+
 # Image overlays
-bgimg = overlay('0', '0', True)
-ccby  = overlay(ccby_position.get_x(), ccby_position.get_y(), True)
-logo  = overlay(logo_position.get_x(), logo_position.get_y(), True)
+if conf['bgimg'].get('has', False) and Path(conf['bgimg']['path']).exists():
+    print(f"+ Found background image {conf['bgimg']['path']}")
+    cmd.append(f'-loop 1 -i {conf["bgimg"]["path"]} -t {intro.length}')
 
-# Course name fading
-course_fade_in = txt_fade(True, fil, stfi)
-course_fade_out = txt_fade(False, fol, stfo)
-course_x_fade = cross_fader(course_fade_in, course_fade_out)
+    # Build the filter for the background image
+    bi = img_fade(True, fil, stfi)
+    bo = img_fade(False, fol, lfo)
+    filters['bgimg'] = f'{build_filter(len(filters), conf["bgimg"])} {bi}, {bo}'
 
-# Lecture title fading
-title_fade_in  = txt_fade(True, fil, lfi)
-title_fade_out = txt_fade(False, fol, lfo)
-xt_fade = cross_fader(title_fade_in, title_fade_out)
+    overlays['bgimg'] = overlay('0', '0', True)
 
-# Logo fading
-fi = img_fade(True, fil, stfi)
-fo = img_fade(False, fol, stfo)
+if conf['logo'].get('has', False) and Path(conf['logo']['path']).exists():
+    print(f"+ Found logo image {conf['logo']['path']}")
+    cmd.append(f'-loop 1 -i {conf["logo"]["path"]} -t {intro.length}')
 
-# Background fading
-bi = img_fade(True, fil, stfi)
-bo = img_fade(False, fol, lfo)
+    # Build the filter for the logo image
+    fi = img_fade(True, fil, stfi)
+    fo = img_fade(False, fol, stfo)
+    filters['logo'] = f'{build_filter(len(filters), conf["logo"])} {fi}, {fo}'
+
+    x = img_position.x(conf['logo'].get('x',0))
+    y = img_position.y(conf['logo'].get('y',0))
+    overlays['logo'] = overlay(x, y, True)
+
+if conf['copyright'].get('has', False) and Path(conf['copyright']['path']).exists():
+    print(f"+ Found copyright image {conf['copyright']['path']}")
+    cmd.append(f'-loop 1 -i {conf["copyright"]["path"]} -t {intro.length}')
+
+    # Build the filter for the logo image
+    fi = img_fade(True, fil, stfi)
+    fo = img_fade(False, fol, stfo)
+    filters['copy'] = f'{build_filter(len(filters), conf["copyright"])} {fi}, {fo}'
+
+    x = img_position.x(conf['copyright'].get('x',0))
+    y = img_position.y(conf['copyright'].get('y',0))
+    overlays['copy'] = overlay(x, y, True)
+
+# Now add the filters
+cmd.append(f'-filter_complex "') # That double-quote is important!
+
+for f,v in filters.items():
+    cmd.append(f'{v} [{f}];')
+
+last_filter = None
+# Now we have to combine the filters
+all_filters = list(filters.keys())
+for f in range(1, len(all_filters)):
+    cmd.append(f'[f{f-1}][{all_filters[f]}] {overlays[all_filters[f]]} [f{f}];')
+    if f==1:
+        cmd[-1] = cmd[-1].replace(f'[f{f-1}]', f'[{all_filters[f-1]}]') # first one is different
+    if f==len(all_filters)-1:
+        cmd[-1] = cmd[-1].replace(f'[f{f}];', ',') # remove the trailing semicolon
+
+print(" \\\n".join(cmd))
+
+############################
+# Now add the text elements
+############################
+course_x_fade  = cross_fader(txt_fade(True, fil, stfi), txt_fade(False, fol, stfo))
+lecture_x_fade = cross_fader(txt_fade(True, fil, lfi), txt_fade(False, fol, lfo))
 
 # Course title text
-titles = []
-middle_index = (len(title.lines) - 1)/2
-for i, txt in enumerate(title.lines):
-    if len(txt) > 30:
-        print(f"*** WARNING: Course title line {i} '{txt}' is quite long ({len(txt)} characters). Consider shortening to improve appearance. ***")
-    if i < middle_index:
-        y = f"-({round(abs(i-middle_index)*(title.size * leading))})"
-    elif i > middle_index:
-        y = f"+({round(abs(i-middle_index)*(title.size * leading))})"
-    else:
-        y = ""
-    print(f"Course title line {i} '{txt}' will be positioned at y={y}.")
-    print(f"    Position: x={title.position.get_x()}, y={title.position.get_y()}{y}")
-    t = text(txt, title.position.get_x(), f"{title.position.get_y()}{y}",
-             title.size, color=fontcolor_light, font=title.font, style=title.style,
-             halign=title.h_align, valign=title.v_align)
-    t.add_fader(course_x_fade)
-    titles.append(t)
+if conf['course'].get('text', None) != None:
+    
+    lines = conf['course']['text'].split('\n')
+    idx   = (len(lines) - 1)/2
+
+    for i, txt in enumerate(lines):
+
+        print(f"Course title line {i}: '{txt}'.")
+
+        if len(txt) > 30:
+            print(f"*** WARNING: Course title line {i} '{txt}' is quite long ({len(txt)} characters). Consider shortening to improve appearance. ***")
+        
+        if i < idx:
+            ymod = f"-({round(abs(i-idx)*(conf['course']['size'] * conf['fonts']['leading']))})"
+        elif i > idx:
+            ymod = f"+({round(abs(i-idx)*(conf['course']['size'] * conf['fonts']['leading']))})"
+        else:
+            ymod = ""
+
+        x = txt_position.x(conf['course'].get('x',0))
+        y = txt_position.y(conf['course'].get('y',0)) + ymod
+    
+        print(f" Position: x={x}, y={y}")
+
+        course = text(txt.replace(':','\\:'), x, y,
+                size=conf['course']['size'], color=conf['fonts']['fontcolor_light'], 
+                font=conf['fonts']['fontface'], style=conf['course']['style'], 
+                halign=conf['course']['halign'], valign=conf['course']['valign'])
+        course.add_fader(course_x_fade)
+        cmd.append(str(course))
 
 # Lecture title text
-lecture.lines = args.talk.split('\\n') if args.talk != None else lecture.lines
-middle_index = (len(lecture.lines) - 1)/2
-for i, txt in enumerate(lecture.lines):
-    if len(txt) > 30:
-        print(f"*** WARNING: Talk title line {i} '{txt}' is quite long ({len(txt)} characters). Consider shortening to improve appearance. ***")
-    if i < middle_index:
-        y = f"-({round(abs(i-middle_index)*(lecture.size * leading))})"
-    elif i > middle_index:
-        y = f"+({round(abs(i-middle_index)*(lecture.size * leading))})"
+ymin = ""
+ymax = ""
+
+if conf['lecture'].get('text', None) != None or args.talk != None:
+    if args.talk != None:
+        lines = args.talk.split('\\n')
     else:
-        y = ""
-    print(f"Lecture title line {i} '{txt}' will be positioned at y={y}.")
-    print(f"    Position: x={lecture.position.get_x()}, y={lecture.position.get_y()}{y}")
-    t = text(txt.replace(':','\\:'), lecture.position.get_x(), f"{lecture.position.get_y()}{y}", 
-             lecture.size, color=fontcolor_light, font=lecture.font, style=lecture.style,
-             halign=lecture.h_align, valign=lecture.v_align)
-    t.add_fader(xt_fade)
-    titles.append(t)
+        lines = conf['lecture']['text'].split('\n')
+    
+    idx = (len(lines) - 1)/2
+
+    for i, txt in enumerate(lines):
+
+        print(f"Lecture title line {i} '{txt}'.")
+
+        if len(txt) > 30:
+            print(f"*** WARNING: Talk title line {i} '{txt}' is quite long ({len(txt)} characters). Consider shortening to improve appearance. ***")
+        if i < idx:
+            ymod = f"-({round(abs(i-idx)*(conf['lecture']['size'] * conf['fonts']['leading']))})"
+        elif i > idx:
+            ymod = f"+({round(abs(i-idx)*(conf['lecture']['size'] * conf['fonts']['leading']))})"
+        else:
+            ymod = ""
+
+        x = txt_position.x(conf['lecture'].get('x',0))
+        y = txt_position.y(conf['lecture'].get('y',0)) + ymod
+        if i==0:
+            ymin = y
+        if i==len(lines)-1:
+            ymax = y
+        print(f"    Position: x={x}, y={y}")
+        lecture = text(txt.replace(':','\\:'), x, y, 
+                size=conf['lecture']['size'], color=conf['fonts']['fontcolor_light'], 
+                font=conf['fonts']['fontface'], style=conf['lecture']['style'], 
+                halign=conf['lecture']['halign'], valign=conf['lecture']['valign'])
+        lecture.add_fader(lecture_x_fade)
+        cmd.append(str(lecture))
+
+print(f"  - Lecture title spans y={ymin} to y={ymax}")
 
 # Year for talk
-y = f"-({round(middle_index * lecture.size * leading + lecture.size * 0.75 * leading)})"
-yr = text(f"{year.lines[0]}/{int(year.lines[0])+1}", year.position.get_x(), year.position.get_y(), 
-          year.size, color=fontcolor_light, font=year.font, style=year.style, 
-          halign=year.h_align, valign=year.v_align)
-yr.add_fader(xt_fade)
+if conf['year'].get('text', None) != None:
+    try:
+        txt = f"{int(conf['year']['text'])}/{int(conf['year']['text'])+1}"
+    except:
+        txt = conf['year']['text']
+
+    x = txt_position.x(conf['year'].get('x',0))
+    #y = txt_position.y(conf['year'].get('y',0))
+    y = f"{ymin} - ({(conf['lecture']['size'] * conf['fonts']['leading'] * 0.55):0.0f})" 
+    
+    yr = text(txt, x, y, 
+            size=conf['year']['size'], color=conf['fonts']['fontcolor_light'], 
+            font=conf['fonts']['fontface'], style=conf['year']['style'], 
+            halign=conf['year']['halign'], valign=conf['year']['valign'])
+    yr.add_fader(lecture_x_fade)
+    cmd.append(str(yr))
 
 # Copyright line
-y = f"+({round((middle_index + 1) * lecture.size * leading)})"
-copy = text(f"by {author.lines[0]}", author.position.get_x(), author.position.get_y(), 
-            author.size, color=fontcolor_light, font=author.font, style=author.style,
-            halign=author.h_align, valign=author.v_align)
-copy.add_fader(xt_fade)
+if conf['author'].get('text', None) != None:
+    txt = f"{conf['author']['text']}"
 
-params = {
-    'bg': str(intro),
-    'img': f'[0:v]scale=1280:-1,colorchannelmixer=aa=0.175, {bi}, {bo}',
-    'logo': f'[1:v]scale=52:-1, {fi}, {fo}',
-    'ccby': f'[2:v]{fi}, {bo}'
-}
+    x = txt_position.x(conf['author'].get('x',0))
+    #y = txt_position.y(conf['author'].get('y',0))
+    y = f"{ymax} + ({(conf['lecture']['size'] * conf['fonts']['leading'] * 0.90):0.0f})" 
 
-cmd = ''
-cmd += f'ffmpeg -hide_banner -y \\\n'
-cmd += f'-loop 1 -i {bg_url} -t {intro.length} \\\n'
-cmd += f'-loop 1 -i {logo_url} -t {intro.length} \\\n'
-cmd += f'-loop 1 -i {ccby_url} -t {intro.length} \\\n'
-cmd += f'-filter_complex "\\\n'
-for p,v in params.items():
-    cmd += f'{v} [{p}]; \\\n'
-cmd += f'[bg][img] {bgimg} [bg1]; \\\n'
-cmd += f'[bg1][logo] {logo} [bg2]; \\\n'
-cmd += f'[bg2][ccby] {ccby}, \\\n'
-for t in titles:
-    cmd += str(t) + f" \\\n"
-cmd += str(yr) + f" \\\n"
-cmd += str(copy) + f" \\\n"
-cmd += f'" -r 30 -c:v libx264 \\\n'
-cmd += f'-pix_fmt yuv420p -tune stillimage {args.output}\n'
+    author = text(txt, x, y, 
+                size=conf['author']['size'], color=conf['fonts']['fontcolor_light'], 
+                font=conf['fonts']['fontface'], style=conf['author']['style'],
+                halign=conf['author']['halign'], valign=conf['author']['valign'])
+    author.add_fader(lecture_x_fade)
+    cmd.append(str(author))
 
-print(cmd)
-#call(cmd, shell=True)
+cmd.append(f'" -r 30 -c:v libx264') # That double-quote is important!
+cmd.append(f'-pix_fmt yuv420p -tune stillimage')
+cmd.append(f'{args.output}')
 
-#ffmpeg -i Test.mp4 -itsoffset 00:00:02 -i fanfare-1.m4a -map 0:0 -map 1:0 -c:v copy -async 1 out.mp4
+if DEBUG:
+    print("=" * 30)
+    print(" \\\n".join(cmd))
+    print("=" * 30)
+
+call(" \\\n".join(cmd), shell=True)
 
 exit()
