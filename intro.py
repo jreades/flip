@@ -151,7 +151,7 @@ cmd += f'" -r 30 -c:v libx264 \\\n'
 cmd += f'-pix_fmt yuv420p -tune stillimage {args.output}\n'
 
 print(cmd)
-call(cmd, shell=True)
+#call(cmd, shell=True)
 
 #ffmpeg -i Test.mp4 -itsoffset 00:00:02 -i fanfare-1.m4a -map 0:0 -map 1:0 -c:v copy -async 1 out.mp4
 
