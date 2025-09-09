@@ -5,61 +5,75 @@ import argparse, tomllib
 from pydub import AudioSegment
 from subprocess import call
 import os, re, glob
+from pathlib import Path
 
 DEBUG = False
-
-ppath = os.path.join(os.path.expanduser("~"),"anaconda3","envs","sds","bin")
 
 parser = argparse.ArgumentParser(
                     prog='Audio Segment Generator',
                     description='Generates a set of audio segments from a single m4a file. Requires Audacity to be installed and running.',
                     epilog='For example: `python ffmpeg/extract_audio.py -t 6.2-Randomness`')
-parser.add_argument('-s', '--src', type=str, help="The path of the audio source file.")
-parser.add_argument('-f', '--file', type=str, help="The file name of the Markdown file where the segment metadata is stored.")
-parser.add_argument('-t', '--talk', type=str, help="The file name of the talk (this needs to match a heading in the segments file).")
+parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
+parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='defaults.toml')
+parser.add_argument('-l', '--lesson', type=str, help="Name of the lesson in the project.toml configuration file.", default='1')
 
 args = parser.parse_args()
 
-# Strip off the HTML suffix (or any other suffix)
-if re.search(r'\.\w{2,4}$', args.talk):
-    args.talk = re.sub(r'\.\w{2,4}$','',args.talk)
+if args.defaults != None and Path(args.defaults).exists():
+    with open(args.defaults, 'rb') as f:
+        conf = tomllib.load(f)
+else:
+    conf = {}
 
-# Only the slides use the '_'
-args.src = re.sub(r'_',' ',args.talk)
+if args.project != None and Path(args.project).exists():
+    with open(args.project, 'rb') as f:
+        proj = tomllib.load(f)
+else:
+    proj = {}
 
-args.output = os.path.join('_audio',args.talk)
+# Merge project settings into conf
+for k,v in proj.items():
+    if k not in conf:
+        conf[k] = v
+
+parent = Path(conf['outputs']['audio'])
+parent.mkdir(parents=True, exist_ok=True)
+
+args.output = parent / conf['lessons'][args.lesson]['track'].strip()
 
 # Create the folder for storing the files
-if not os.path.exists(args.output):
-    os.makedirs(args.output, exist_ok=True)
+if not args.output.exists():
+    args.output.mkdir(parents=True, exist_ok=True)
     print(f"+ Created {args.output}")
 else:
     print(f"+ Found {args.output}")
-    files = glob.glob(os.path.join(args.output, "*.m4a"))
+    files = glob.glob(str(args.output / "*.m4a"))
     if len(files) > 0:
         print(f"  - Emptying directory of already-rendered output")
         for f in files:
-            os.remove(f)
+            Path(f).unlink()
 
 ######################
 # Find the appropriate metadata
 print(f"+ Finding segment metadata in the Markdown file.")
 
-if os.path.exists(args.file):
-    print(f"  + Found {args.file}")
+args.markdown = Path(conf['project']['cuts'])
+
+if os.path.exists(args.markdown):
+    print(f"  + Found {args.markdown}")
 else:
-    print(f"  - Couldn't find {args.file}")
+    print(f"  - Couldn't find {args.markdown}")
     exit()
 
 audio_meta = []
 loading    = False
 
 header_remove = re.compile('^## ')
-with open(os.path.join(args.segments), 'r') as f:
+with open(args.markdown, 'r') as f:
     for i in f.readlines():
         txt = i.strip()
         if txt.startswith('## '):
-            if txt.replace('## ','') == args.src:
+            if txt.replace('## ','') == conf['lessons'][args.lesson]['track'].strip():
                 #print("Found it...")
                 loading = True
             else:
@@ -95,8 +109,8 @@ print(f"  + Data structure created.")
 # from the metadata, and save to segments.
 print(f"+ Preparing to extract audio.")
 
-audio_src = os.path.join(args.src)
-if not os.path.exists(audio_src):
+audio_src = Path(conf['project']['audio']) / f"{conf['lessons'][args.lesson]['track'].strip()}.m4a"
+if not audio_src.exists():
     print(f"Couldn't find file: {audio_src}")
     exit()
 
@@ -114,6 +128,6 @@ for row in range(0, len(audio_ds[header[0]])):
     segment = track[start_ts * 1000:end_ts*1000]
     segment.export(os.path.join(args.output,f"{nm}.m4a"), format="ipod")
 
-print(f"+++ Audio segments for {args.talk} generated +++")
+print(f"+++ Audio segments for {conf['lessons'][args.lesson]['track'].strip()} generated +++")
 
 exit()
