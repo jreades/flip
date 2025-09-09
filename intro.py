@@ -13,18 +13,37 @@ parser = argparse.ArgumentParser(
                     prog='Intro Slide Generator',
                     description='Generates a title slide for a lecture with the module name and CASA logo showing first.',
                     epilog='Text at the bottom of help')
-parser.add_argument('-d', '--defaults', type=str, help="Path to the scene.toml configuration file.")
-parser.add_argument('-l', '--length', type=float, help="The length of the scene slide talk.")
-parser.add_argument('-t', '--talk', type=str, help="The title of the talk, for multi-line separate with \\n")
-parser.add_argument('-o', '--output', type=str, help="Name of the ouptut MP4 file.", default=Path('_mp4/scene.mp4'))
+parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
+parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='intro.toml')
+parser.add_argument('-r', '--running', type=float, help="The length of the intro slide talk.", default=4.0)
+parser.add_argument('-l', '--lesson', type=float, help="The lesson key from the project.toml configuration file.", default=1)
 
 args = parser.parse_args()
-
-Path('_mp4').mkdir(exist_ok=True)
 
 if args.defaults != None and Path(args.defaults).exists():
     with open(args.defaults, 'rb') as f:
         conf = tomllib.load(f)
+else:
+    conf = {}
+
+if args.project != None and Path(args.project).exists():
+    with open(args.project, 'rb') as f:
+        proj = tomllib.load(f)
+else:
+    proj = {}
+
+# Merge project settings into conf
+for k,v in proj.items():
+    if k not in conf:
+        conf[k] = v
+
+parent = Path(conf['outputs']['video'])
+parent.mkdir(parents=True, exist_ok=True)
+
+args.output = parent / conf['lessons'][str(args.lesson)]['track'].strip()
+Path(args.output).mkdir(parents=True, exist_ok=True)
+
+args.talk   = conf['lessons'][str(args.lesson)]['title'].strip()
 
 # Determine lengths:
 # - lfi == lecture fade in
@@ -39,16 +58,16 @@ stfo = conf['timings']['start_fade_out']
 fol  = conf['timings']['fade_out_duration']
 lfi  = stfo + (fol - fol/2) # crossfade
 
-if args.length != None and args.length > 0:
-    lfo  = args.length - (fol + 0.1) # lecture fade out
-    run_len = args.length
+if args.running != None and args.running > 0:
+    lfo  = args.running - (fol + 0.1) # lecture fade out
+    run_len = args.running
 else:
     lfo  = stfo + fil + 1.0 # lecture fade out
     run_len = lfo + fol
 
 if DEBUG:
-    print(f"- Start fade in at {stfi:0.2f} for {fil:0.2f}s")
-    print(f"- Start fade out at {stfo:0.2f} for {fol:0.2f}s")
+    print(f"- Course fade in at {stfi:0.2f} for {fil:0.2f}s")
+    print(f"- Course fade out at {stfo:0.2f} for {fol:0.2f}s")
     print(f"- Lecture fade in at {lfi:0.2f}s")
     print(f"- Lecture fade out at {lfo:0.2f}s")
     print(f"- Running length at {run_len:0.2f}s")
@@ -74,7 +93,7 @@ def build_filter(pos:int=0, conf:dict={}) -> str:
     return str
 
 # Set up the overall 'scene'
-scene = scene(run_len)
+scene = scene(run_len, size=tuple(conf['project']['size'].split('x')))
 scene.color = conf['bg'].get('color', '000000')
 filters['bg'] = f'{str(scene)}'
 
@@ -175,7 +194,7 @@ ymax = ""
 
 if conf['lecture'].get('text', None) != None or args.talk != None:
     if args.talk != None:
-        lines = args.talk.split('\\n')
+        lines = args.talk.split('\n')
     else:
         lines = conf['lecture']['text'].split('\n')
     
@@ -234,7 +253,7 @@ if conf['author'].get('text', None) != None:
 
     x = txt_position.x(conf['author'].get('x',0))
     #y = txt_position.y(conf['author'].get('y',0))
-    y = f"{ymax} + ({(conf['lecture']['size'] * conf['fonts']['leading'] * 0.90):0.0f})" 
+    y = f"{ymax} + ({(conf['lecture']['size'] * conf['fonts']['leading'] * 0.95):0.0f})" 
 
     author = text(txt, x, y, 
                 size=conf['author']['size'], color=conf['fonts']['fontcolor_light'], 
@@ -243,9 +262,11 @@ if conf['author'].get('text', None) != None:
     author.add_fader(lecture_x_fade)
     cmd.append(str(author))
 
+out = str(Path(args.output / 'Intro.mp4')).replace(' ','\ ')
+
 cmd.append(f'" -r 30 -c:v libx264') # That double-quote is important!
 cmd.append(f'-pix_fmt yuv420p -tune stillimage')
-cmd.append(f'{args.output}')
+cmd.append(f'{out}')
 
 if DEBUG:
     print("=" * 30)
@@ -253,5 +274,7 @@ if DEBUG:
     print("=" * 30)
 
 call(" \\\n".join(cmd), shell=True)
+
+print(f"+ Created {args.output}")
 
 exit()

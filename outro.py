@@ -5,7 +5,6 @@
 import argparse, tomllib
 from subprocess import call
 from ffmpeg import *
-import os
 from pathlib import Path
 
 DEBUG = False
@@ -14,19 +13,35 @@ parser = argparse.ArgumentParser(
                     prog='Outro Slide Generator',
                     description='Generates a tail slide for a lecture with the CASA logo and copyright.',
                     epilog='Text at the bottom of help')
-parser.add_argument('-d', '--defaults', type=str, help="Path to the intro.toml configuration file.")
-parser.add_argument('-l', '--length', type=float, help="The length of the talk.", default=3)
-parser.add_argument('-o', '--output', type=str, help="Name of the ouptut MP4 file.", default=Path('_mp4/outro.mp4'))
+parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
+parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='outro.toml')
+parser.add_argument('-r', '--running', type=float, help="The length of the intro slide talk.", default=4.0)
+parser.add_argument('-l', '--lesson', type=float, help="The lesson key from the project.toml configuration file.", default=1)
 
 args = parser.parse_args()
-
-Path('_mp4').mkdir(exist_ok=True)
 
 if args.defaults != None and Path(args.defaults).exists():
     with open(args.defaults, 'rb') as f:
         conf = tomllib.load(f)
+else:
+    conf = {}
 
-os.makedirs(Path(args.output).parent, exist_ok=True)
+if args.project != None and Path(args.project).exists():
+    with open(args.project, 'rb') as f:
+        proj = tomllib.load(f)
+else:
+    proj = {}
+
+# Merge project settings into conf
+for k,v in proj.items():
+    if k not in conf:
+        conf[k] = v
+
+parent = Path(conf['outputs']['video'])
+parent.mkdir(parents=True, exist_ok=True)
+
+args.output = parent / conf['lessons'][str(args.lesson)]['track'].strip()
+Path(args.output).mkdir(parents=True, exist_ok=True)
 
 # Determine lengths:
 # - lfi == lecture fade in
@@ -40,9 +55,9 @@ fil  = conf['timings']['fade_in_duration']
 stfo = conf['timings']['start_fade_out']
 fol  = conf['timings']['fade_out_duration']
 
-if args.length != None and args.length > 0:
-    stfo = args.length - (fol + 0.1) # lecture fade out
-    running_len = args.length
+if args.running != None and args.running > 0:
+    stfo = args.running - (fol + 0.1) # lecture fade out
+    running_len = args.running
 else:
     stfo = 0.175
     running_len  = stfo + fol + 0.1 # lecture fade out
@@ -80,7 +95,7 @@ def build_filter(pos:int=0, conf:dict={}) -> str:
     return str
 
 # Set up the overall 'scene'
-scene = scene(running_len)
+scene = scene(running_len, size=tuple(conf['project']['size'].split('x')))
 scene.color = conf['bg'].get('color', '000000')
 filters['bg'] = f'{str(scene)}'
 
@@ -172,9 +187,11 @@ if conf['author'].get('text', None) != None:
     author.add_fader(tfo)
     cmd.append(str(author))
 
+out = str(Path(args.output / 'Outro.mp4')).replace(' ','\ ')
+
 cmd.append(f'" -r 30 -c:v libx264 -c:a aac -shortest') # That double-quote is important!
 cmd.append(f'-pix_fmt yuv420p -tune stillimage')
-cmd.append(f'{args.output}')
+cmd.append(f'{out}')
 
 if DEBUG != False:
     print("=" * 30)
