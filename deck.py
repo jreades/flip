@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser(
                     epilog='For example: `python ffmpeg/extract.py -t 3.4-Functions -s https://jreades.github.io/fsds/lectures`')
 parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
 parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='defaults.toml')
-parser.add_argument('-l', '--lesson', type=str, help="Name of the lesson in the project.toml configuration file.", default='1')
+parser.add_argument('-l', '--lesson', type=int, help="Name of the lesson in the project.toml configuration file.", default=1)
 
 args = parser.parse_args()
 
@@ -38,7 +38,7 @@ for k,v in proj.items():
 parent = Path(conf['outputs']['slides'])
 parent.mkdir(parents=True, exist_ok=True)
 
-args.output = parent / conf['lessons'][args.lesson]['track'].strip()
+args.output = parent / conf['lessons'][str(args.lesson)]['track'].strip()
 
 scrn_size   = conf['project'].get('size', '1280x720')
 scrn_format = conf['project'].get('format', 'png')

@@ -39,7 +39,7 @@ for k,v in proj.items():
 parent = Path(conf['outputs']['audio'])
 parent.mkdir(parents=True, exist_ok=True)
 
-args.output = parent / conf['lessons'][args.lesson]['track'].strip()
+args.output = parent / conf['lessons'][str(args.lesson)]['track'].strip()
 
 # Create the folder for storing the files
 if not args.output.exists():

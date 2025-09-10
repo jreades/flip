@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
 parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='outro.toml')
 parser.add_argument('-r', '--running', type=float, help="The length of the intro slide talk.", default=4.0)
-parser.add_argument('-l', '--lesson', type=float, help="The lesson key from the project.toml configuration file.", default=1)
+parser.add_argument('-l', '--lesson', type=int, help="The lesson key from the project.toml configuration file.", default=1)
 
 args = parser.parse_args()
 
@@ -187,7 +187,7 @@ if conf['author'].get('text', None) != None:
     author.add_fader(tfo)
     cmd.append(str(author))
 
-out = str(Path(args.output / 'Outro.mp4')).replace(' ','\ ')
+out = str(Path(args.output / '99-Outro.mp4')).replace(' ','\ ')
 
 cmd.append(f'" -r 30 -c:v libx264 -c:a aac -shortest') # That double-quote is important!
 cmd.append(f'-pix_fmt yuv420p -tune stillimage')
