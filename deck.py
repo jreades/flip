@@ -1,9 +1,8 @@
 ######################
 # Take a lecture and extract it to a set of PNG files. 
 ######################
-import argparse, tomllib
+import argparse, tomllib, re, glob
 from subprocess import call
-import re, glob
 from pathlib import Path
 
 DEBUG = False
@@ -61,21 +60,24 @@ print(f"+ Preparing to extract screenshots.")
 server_path = f"{conf['project']['server']}/" \
                 f"{conf['lessons'][str(args.lesson)]['week']}." \
                 f"{conf['lessons'][str(args.lesson)]['sequence']}-" \
-                f"{re.sub(r'[^a-zA-Z0-9]+','_',conf['lessons'][str(args.lesson)]['track'].strip())}" \
+                f"{re.sub(r'[^a-zA-Z0-9\-]+','_',conf['lessons'][str(args.lesson)]['track'].strip())}" \
                 ".html"
-print(server_path)
+
+print(f"Server path: {server_path}")
 
 # And extract the slides as PNGs to the folder
 cmd = ''
 cmd += f'decktape \\\n'
-cmd += f'  --screenshots --screenshots-directory {args.output} \\\n'
+cmd += f'  --screenshots --screenshots-directory {re.escape(str(args.output))} \\\n'
 cmd += f'  --size {scrn_size} --screenshots-size {scrn_size} --screenshots-format {scrn_format} \\\n'
 cmd += f'  --pause {pause} --load-pause {pause} --headless true \\\n'
-cmd += f"  {server_path} {conf['lessons'][str(args.lesson)]['track'].strip() + '.pdf'}"
+cmd += f"  {server_path} {re.escape(conf['lessons'][str(args.lesson)]['track'].strip() + '.pdf')}"
 
-if re.DEBUG:
-    print(f"  -i: {cmd}")
+if not DEBUG:
+    print(f"{cmd}")
 call(cmd, shell=True)
+
+Path(conf['lessons'][str(args.lesson)]['track'].strip() + '.pdf').unlink(missing_ok=True)
 
 print(f"+ PNGs for {conf['lessons'][str(args.lesson)]['track'].strip()} generated +++")
 

@@ -10,6 +10,8 @@ import re, glob, shutil
 import math
 from pathlib import Path
 
+safe = re.compile(r'[^a-zA-Z0-9\-\.]+')
+
 DEBUG = True
 
 ppath = Path.home() / "anaconda3" / "envs" / "sds" / "bin"
@@ -47,7 +49,10 @@ for k,v in proj.items():
 parent = Path(conf['outputs']['merge'])
 parent.mkdir(parents=True, exist_ok=True)
 
-args.merge = parent / conf['lessons'][str(args.lesson)]['track'].strip()
+# ffmpeg is particular about filenames and doesn't like spaces
+# or other special characters, so we sanitise the track name
+# to create a safe folder name.
+args.merge = parent / Path(safe.sub('_', conf['lessons'][str(args.lesson)]['track'].strip()))
 
 # Create the folder for storing the files
 if not args.merge.exists():
@@ -112,7 +117,7 @@ if DEBUG:
 
 ######################
 # Organise the audio
-audio_pat = re.compile(r'/(\d{1,2})\b')
+audio_pat = re.compile(r'_(\d{1,2})_')
 audio_map = {int(audio_pat.search(str(x))[1]):x for x in audio_files}
 
 if DEBUG:
@@ -120,8 +125,7 @@ if DEBUG:
 
 ######################
 # Organise the existing video
-video_pat = re.compile(r'/(\d{1,2})\b')
-print(f"Video files: {video_files}")
+video_pat = re.compile(r'_(\d{1,2})_')
 video_map = {int(video_pat.search(str(x))[1]):x for x in video_files}
 
 if DEBUG:
@@ -131,27 +135,30 @@ if DEBUG:
 # we are going to cut the intro slide from the
 # stills (and replace that with an auto-generated)
 # one, and cut the 'Resources' slide from the end.
-if abs(len(still_map.keys()) - len(audio_map.keys())) > 1:
-    print("!" * 20)
-    print(f"Unequal number of stills ({len(still_map.keys())+1}) and audio ({len(audio_map.keys())}) files found.")
-    print("!" * 20)
+if len(still_map) - len(audio_map) > 2:
+    print("!" * 30)
+    print(f"Unequal number of stills ({len(still_map)}) and audio ({len(audio_map)}) files found.")
+    if max(still_map.keys()) - max(audio_map.keys()) > 2:
+        print(f"  Still files: {', '.join([str(x) for x in sorted(still_map.keys())])}")
+        print(f"  Audio files: {', '.join([str(x) for x in sorted(audio_map.keys())])}")
+    else:
+        print("You appear to be skipping some slides, which is fine.")
+        print("In that case, we skip the final two slides on the assumption they are references and a thank you.")
+    print("!" * 30)
     if not args.quick: exit()
 
-fn_out = Path(args.merge / (str(still_map[1].stem) + ".mp4"))
+###############
+# For the first slide...
+print("=" * 25)
+print("o Generating first slide...")
+fn_out = Path(args.merge / safe.sub('_', str(still_map[1].stem) + ".mp4"))
 if args.force or not fn_out.exists():
-    ###############
-    # For the first slide...
-    print("=" * 25)
-
-    print("o Generating first slide...")
-
     # Find out how long the intro audio track is
     probe =  f'ffprobe -hide_banner -sexagesimal -show_entries format=duration '
     probe += f'{re.escape(str(audio_map[1]))}'
 
     # Capture the duration
     merge = check_output(probe, shell=True).decode("utf-8").split("\n")[1]
-    #print(merge)
     duration = re.match(r'duration=(\d{1,}):(\d{2}):(\d{2})\.(\d{3})\d+',merge)
 
     hrs = int(duration[1])
@@ -174,12 +181,14 @@ if args.force or not fn_out.exists():
         print(f"  o {cmd}")
     call(cmd, shell=True)
     
+    fn_in = str(Path(args.mp4 / f"{conf['lessons'][str(args.lesson)]['track'].strip()}_01_Intro.mp4"))
+
     cmd = ''
     cmd += f'ffmpeg -hide_banner -y \\\n'
-    cmd += f'-i {re.escape(str(args.mp4 / "01-Intro.mp4"))} \\\n'
+    cmd += f'-i {re.escape(fn_in)} \\\n'
     cmd += f'-i {re.escape(str(audio_map[1]))} \\\n'
     cmd += f'-c:v libx264 -tune stillimage -pix_fmt yuv420p -c:a aac \\\n'
-    cmd += f'{re.escape(str(args.merge / (str(still_map[1].stem) + ".mp4")))}'
+    cmd += f'{re.escape(str(fn_out))}'
     
     if DEBUG:
         print(f"  o {cmd}")
@@ -187,70 +196,76 @@ if args.force or not fn_out.exists():
 
     print("  + First slide generated.")
     print("=" * 25)
+else:
+    print(f"+ Found existing Intro slide {fn_out}. Skipping...")
 
 # Now get rid of the first slide
 del(still_map[1])
+
 # For the remaining stills
+print("=" * 25)
+print("o Generating remaining slide...")
 for idx in sorted(still_map.keys()):
     print(f"{'-' * 25}")
     print(f"o Generating slide {idx}...")
-    print(f"  {still_map[idx]}")
-    try:
-        fn_out = Path(args.merge / (str(still_map[idx].stem) + ".mp4"))
-        if fn_out.exists() and not args.force:
-            print(f"  - Output file {fn_out} already exists. Skipping.")
-            continue
-        else:
-            if video_map[idx].endswith('.mp4'):
-                print(f"  + Found MP4 file to include {idx}:{video_map[idx]}")
-                # Transcode to the correct format
-                cmd = ''
-                cmd += f'ffmpeg -hide_banner -y -r 30 \\\n'
-                cmd += f'-i {re.escape(str(video_map[idx]))} \\\n'
-                cmd += f'-c:v libx264 -pix_fmt yuv420p \\\n'
-                cmd += f'-b:a 64k \\\n'
-                cmd += f'{re.escape(str(fn_out))}'
-                if DEBUG:
-                    print(f"  o {cmd}")
-                call(cmd, shell=True)
-                
-                print(f"  + Slide {idx} generated.")
 
-            elif still_map.get(idx, False) and audio_map.get(idx, False):
-
-                print(f"  o Matching {still_map[idx]} -> {audio_map[idx]}")
-                if still_map[idx].exists() and audio_map[idx].exists():
-                    cmd = ''
-                    cmd += f'ffmpeg -hide_banner -y -r 30 -loop 1 \\\n'
-                    cmd += f'-i {re.escape(str(still_map[idx]))} \\\n'
-                    cmd += f'-i {re.escape(str(audio_map[idx]))} \\\n'
-                    cmd += f'-c:v libx264 -tune stillimage -shortest -pix_fmt yuv420p \\\n'
-                    cmd += f'-b:a 64k \\\n'
-                    cmd += f'{re.escape(str(fn_out))}'
-                    if DEBUG:
-                        print(f"  o {cmd}")
-                    call(cmd, shell=True)
-                
-                    print(f"  + Slide {idx} generated.")
-            else:
-                print(f"  - Unable to find both audio and still files for Slide {idx}")
-    except KeyError:
-        print(f"  - Unable to match {idx}:{still_map[idx]} in audio_map")
+    fn_out = Path(args.merge / safe.sub('_', str(still_map[idx].stem) + ".mp4"))
+    if fn_out.exists() and not args.force:
+        print(f"  - Output file {fn_out} already exists. Skipping.")
+        continue
+    elif video_map.get(idx, False) and video_map[idx].endswith('.mp4'):
+        try:
+            print(f"  + Found MP4 file to include {idx}:{video_map[idx]}")
+            # Transcode to the correct format
+            cmd = ''
+            cmd += f'ffmpeg -hide_banner -y -r 30 \\\n'
+            cmd += f'-i {re.escape(str(video_map[idx]))} \\\n'
+            cmd += f'-c:v libx264 -pix_fmt yuv420p \\\n'
+            cmd += f'-b:a 64k \\\n'
+            cmd += f'{re.escape(str(fn_out))}'
+            if DEBUG:
+                print(f"  o {cmd}")
+            call(cmd, shell=True)
+            
+            print(f"  + Slide {idx} generated.")
+        except:
+            print(f"  - Problem using MP4 file: {video_map.get(idx, 'N/A')}")
+    elif still_map.get(idx, False) and audio_map.get(idx, False):
+        try:
+            print(f"  o Matching {still_map[idx]} -> {audio_map[idx]}")
+            cmd = ''
+            cmd += f'ffmpeg -hide_banner -y -r 30 -loop 1 \\\n'
+            cmd += f'-i {re.escape(str(still_map[idx]))} \\\n'
+            cmd += f'-i {re.escape(str(audio_map[idx]))} \\\n'
+            cmd += f'-c:v libx264 -tune stillimage -shortest -pix_fmt yuv420p \\\n'
+            cmd += f'-b:a 64k \\\n'
+            cmd += f'{re.escape(str(fn_out))}'
+            if DEBUG:
+                print(f"  o {cmd}")
+            call(cmd, shell=True)
+        
+            print(f"  + Slide {idx} generated.")
+        except:
+            print(f"  - Problem linking video and audio files:")
+            print(f"    o {video_map.get(idx, 'N/A')}")
+            print(f"    o {audio_map.get(idx, 'N/A')}")
+    else:
+        print(f"  - Unable to find both audio and still files for Slide {idx}")
         continue
 print("+ All segments generated.")
 
-fn_out = Path(args.merge / f"{conf['lessons'][str(args.lesson)]['track'].strip()}_99_Outro.mp4")
+print("=" * 25)
+print("o Generating outro slide...")
+fn_out = Path(args.merge / safe.sub('_',f"{conf['lessons'][str(args.lesson)]['track'].strip()}_99_Outro.mp4"))
 if args.force or not fn_out.exists():
-    print("=" * 25)
-    print("o Generating outro slide...")
-    
+
     cmd = ''
     cmd += f'{ppath / "python"} {"outro.py"} \\\n'
     cmd += f'  --project {args.project} \\\n'
     cmd += f'  --defaults {args.project.replace("project","outro")} \\\n'
     cmd += f'  --lesson {str(int(args.lesson))} \\\n'
 
-    fn_in = args.mp4 / "99-Outro.mp4"
+    fn_in = str(Path(args.mp4 / f"{conf['lessons'][str(args.lesson)]['track'].strip()}_99_Outro.mp4"))
     shutil.copy(str(fn_in), str(fn_out))
 
     if DEBUG:
@@ -262,10 +277,11 @@ if args.force or not fn_out.exists():
 else:
     print(f"+ Found existing outro slide {fn_out}. Skipping...")
 
+# Now stitch together the MP4 segments
 print("=" * 25)
-print("+ Stitching segments together...")
+print("o Stitching segments together...")
 
-merge_pat = re.compile(f"{conf['lessons'][str(args.lesson)]['track'].strip()}" + r'_(\d{1,2})_')
+merge_pat = re.compile(f"{safe.sub('_',conf['lessons'][str(args.lesson)]['track'].strip())}" + r'_(\d{1,2})_')
 merge_map = {int(merge_pat.search(str(x))[1]):x for x in args.merge.glob("*.mp4")}
 
 if DEBUG:
@@ -273,31 +289,30 @@ if DEBUG:
 
 with open(Path(args.merge / 'segments.txt'), 'w') as f:
     for s in sorted(merge_map.keys()):
-        f.write(f"file '{str(merge_map[s].name)}'\n")
+        f.write(f"file '{(str(merge_map[s].name))}'\n")
     f.write("")
 
-fn_tmp = args.merge / f"{conf['lessons'][str(args.lesson)]['track'].strip()}.mp4"
-fn_out = args.final / f"{conf['lessons'][str(args.lesson)]['week']}.{conf['lessons'][str(args.lesson)]['sequence']}-{conf['lessons'][str(args.lesson)]['track'].strip()}.mp4"
+fn_tmp = args.merge / f"{safe.sub('_', conf['lessons'][str(args.lesson)]['track'].strip())}.mp4"
+fn_out = args.final / f"{conf['lessons'][str(args.lesson)]['week']}.{conf['lessons'][str(args.lesson)]['sequence']}-{safe.sub('_', conf['lessons'][str(args.lesson)]['track'].strip())}.mp4"
 
 cmd = ''
 cmd += f"ffmpeg -hide_banner -y -f concat -safe 1 "
-cmd += f"-i {re.escape(str(Path(args.merge /'segments.txt')))} "
+cmd += f"-i {str(args.merge / 'segments.txt')} "
 cmd += f"-c:v libx264 -af aresample=async=1000 -pix_fmt yuv420p \\\n"
-cmd += f"{re.escape(str(fn_tmp))}"
+cmd += f"{fn_tmp}"
 
 if DEBUG: 
     print(f"  o {cmd}")
 call(cmd, shell=True)
 
-print("  + Temp video file created.")
+print("  + Unified (temporary) video file created.")
 
 print("=" * 25)
-
 print("o Removing leading black frames...")
 
 cmd  = ''
 cmd += f"ffmpeg -hide_banner -y -ss 00:00:00.075 "
-cmd += f"-i {str(fn_tmp)} -c:v copy -c:a copy {str(fn_out)}"
+cmd += f"-i {re.escape(str(fn_tmp))} -c:v copy -c:a copy {re.escape(str(fn_out))}"
 if DEBUG: 
     print(f"  i {cmd}")
 call(cmd, shell=True)

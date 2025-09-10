@@ -2,7 +2,7 @@
 # Generate an scene animation with the appropriate
 # title for the lecture.
 ######################
-import argparse, tomllib
+import argparse, tomllib, re
 from subprocess import call
 from ffmpeg import *
 from pathlib import Path
@@ -262,11 +262,12 @@ if conf['author'].get('text', None) != None:
     author.add_fader(lecture_x_fade)
     cmd.append(str(author))
 
-out = str(Path(args.output / '01-Intro.mp4')).replace(' ','\ ')
+#fn_out = Path(args.ouput / safe.sub('_', conf['lessons'][str(args.lesson)]['track'].strip() + ".mp4"))
+out = str(Path(args.output / f"{conf['lessons'][str(args.lesson)]['track'].strip()}_01_Intro.mp4"))
 
 cmd.append(f'" -r 30 -c:v libx264') # That double-quote is important!
 cmd.append(f'-pix_fmt yuv420p -tune stillimage')
-cmd.append(f'{out}')
+cmd.append(f'{re.escape(out)}')
 
 if DEBUG:
     print("=" * 30)
@@ -275,6 +276,6 @@ if DEBUG:
 
 call(" \\\n".join(cmd), shell=True)
 
-print(f"+ Created {args.output}")
+print(f"+++ Intro MP4 generated at {out} +++")
 
 exit()

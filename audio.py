@@ -4,7 +4,7 @@
 import argparse, tomllib
 from pydub import AudioSegment
 from subprocess import call
-import os, re, glob
+import re, glob
 from pathlib import Path
 
 DEBUG = False
@@ -59,7 +59,7 @@ print(f"+ Finding segment metadata in the Markdown file.")
 
 args.markdown = Path(conf['project']['cuts'])
 
-if os.path.exists(args.markdown):
+if args.markdown.exists():
     print(f"  + Found {args.markdown}")
 else:
     print(f"  - Couldn't find {args.markdown}")
@@ -123,10 +123,10 @@ for row in range(0, len(audio_ds[header[0]])):
 
     start_ts = float(audio_ds['Start'][row])
     end_ts   = float(audio_ds['End'][row])
-    nm       = "-".join([audio_ds['Sequence'][row],audio_ds['Name'][row]])
+    nm       = "_".join([audio_ds['Sequence'][row],audio_ds['Name'][row]])
     
     segment = track[start_ts * 1000:end_ts*1000]
-    segment.export(os.path.join(args.output,f"{nm}.m4a"), format="ipod")
+    segment.export((Path(args.output / f"{conf['lessons'][str(args.lesson)]['track'].strip()}_{nm}.m4a")), format="ipod")
 
 print(f"+++ Audio segments for {conf['lessons'][args.lesson]['track'].strip()} generated +++")
 

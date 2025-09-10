@@ -2,7 +2,7 @@
 # Generate an intro animation with the appropriate
 # title for the lecture.
 ######################
-import argparse, tomllib
+import argparse, tomllib, re
 from subprocess import call
 from ffmpeg import *
 from pathlib import Path
@@ -187,11 +187,11 @@ if conf['author'].get('text', None) != None:
     author.add_fader(tfo)
     cmd.append(str(author))
 
-out = str(Path(args.output / '99-Outro.mp4')).replace(' ','\ ')
+out = str(Path(args.output / f"{conf['lessons'][str(args.lesson)]['track'].strip()}_99_Outro.mp4"))
 
 cmd.append(f'" -r 30 -c:v libx264 -c:a aac -shortest') # That double-quote is important!
 cmd.append(f'-pix_fmt yuv420p -tune stillimage')
-cmd.append(f'{out}')
+cmd.append(f'{re.escape(out)}')
 
 if DEBUG != False:
     print("=" * 30)
@@ -199,5 +199,7 @@ if DEBUG != False:
     print("=" * 30)
 
 call(" \\\n".join(cmd), shell=True)
+
+print(f"+++ Outro MP4 generated at {out} +++")
 
 exit()
