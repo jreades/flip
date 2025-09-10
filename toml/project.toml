@@ -1,0 +1,43 @@
+######################
+# Params for the rendered introductory slide.
+######################
+
+[project]
+size   = "1280x720"
+server = "http://localhost:4200/lectures"
+audio  = "/Volumnes/Audio/"
+cuts   = "../segments.md"
+
+[outputs]
+audio  = "_m4a"
+video  = "_mp4"
+slides = "_png"
+merge  = "_mrg"
+final  = "_output"
+
+[intro]
+name   = "intro.mp4"
+length = 4.0
+talk   = "Lecture Title"
+
+[lessons.1]
+title    = "The Basics\n(Part 1)"
+subtitle = "Data Science for All"
+track    = "Python the Basics-1"
+week     = 2
+sequence = 1
+
+[lessons.2]
+title    = "The Basics\n(Part 2)"
+subtitle = "Data Science for All"
+track    = "Python the Basics-2"
+week     = 2
+sequence = 2
+
+[lessons.3]
+title    = "Lists"
+subtitle = "Data Science for All"
+track    = "Lists"
+week     = 2
+sequence = 3
+

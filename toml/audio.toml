@@ -1,0 +1,9 @@
+######################
+# Params for the audio extraction.
+######################
+
+[server]
+path = 'http://localhost:4200/lectures/'
+
+[audio]
+path = '/Users/jreades/Library/CloudStorage/OneDrive-UniversityCollegeLondon/CASA0013/Audio'

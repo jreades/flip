@@ -1,0 +1,75 @@
+######################
+# Params for the rendered introductory slide.
+######################
+
+[fonts]
+fontface = "Hanken Grotesk"
+fontcolor = "4f3d57"  # dark purple
+fontcolor_light = "ffffff" # white
+leading = 1.05  # line spacing multiplier
+
+[timings]
+start_fade_in     = 0.15
+fade_in_duration  = 1.2
+start_fade_out    = 1.0
+fade_out_duration = 0.4
+
+[bg]
+color = '42324a'  # "#574d62" # dark purple 
+
+[bgimg]
+has   = true
+path  = 'img/title-slide.png'
+scale = '1280:-1' # width:-1 to scale height proportionally
+alpha = 0.175
+x     = 0
+y     = 0
+
+[logo]
+has   = true
+path  = 'img/transparent_lg.png'
+x     = 0.04
+y     = 0.1
+scale = '52:-1' # width:-1 to scale height proportionally
+
+[copyright]
+has  = true
+path = 'img/by-nc-sa.png'
+x    = 0.9
+y    = 0.915
+
+[course]
+text   = "Foundations of\nSpatial Data Science"
+halign = "left"
+valign = "top"
+size   = 40
+style  = "Bold"
+x      = 0.10
+y      = 0.13
+
+[lecture]
+text   = "Lecture Title"
+halign = "left"
+valign = "top"
+size   = 75
+style  = "Bold"
+x      = 0.10
+y      = 0.25
+
+[author]
+text   = "by Jon Reades"
+halign = "left"
+valign = "top"
+size   = 30
+style  = "Regular"
+x      = 0.10
+y      = 0.427
+
+[year]
+text   = "2025"
+halign = "center"
+valign = "top"
+size   = 30
+style  = "Regular"
+x      = 0.10
+y      = 0.502

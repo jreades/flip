@@ -1,0 +1,57 @@
+######################
+# Params for the rendered introductory slide.
+######################
+
+[fonts]
+fontface = "Hanken Grotesk"
+fontcolor = "4f3d57"  # dark purple
+fontcolor_light = "ffffff" # white
+leading = 1.05  # line spacing multiplier
+
+[timings]
+start_fade_in     = 0.15
+fade_in_duration  = 0.4
+start_fade_out    = 1.0
+fade_out_duration = 1.2
+
+[bg]
+color = '000000' # '#42324a' or "#574d62" # dark purple 
+
+[bgimg]
+has   = true
+path  = 'img/title-slide.png'
+scale = '1280:-1' # width:-1 to scale height proportionally
+alpha = 0.1
+x     = 0
+y     = 0
+
+[logo]
+has   = true
+path  = 'img/transparent_lg.png'
+x     = 0.5
+y     = 0.5
+scale = '175:-1' # width:-1 to scale height proportionally
+
+[copyright]
+has  = true
+path = 'img/by-nc-sa.png'
+x    = 0.9
+y    = 0.915
+
+[year]
+text   = "2025"
+halign = "center"
+valign = "top"
+size   = 36
+style  = "Regular"
+x      = 0.5
+y      = 0.28
+
+[author]
+text   = "CC-BY-NC-SA 2022–2025 Jon Reades"
+halign = "center"
+valign = "top"
+size   = 10
+style  = "Regular"
+x      = 0.5
+y      = 0.68
