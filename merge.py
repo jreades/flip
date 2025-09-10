@@ -12,7 +12,7 @@ from pathlib import Path
 
 safe = re.compile(r'[^a-zA-Z0-9\-\.]+')
 
-DEBUG = True
+DEBUG = False
 
 ppath = Path.home() / "anaconda3" / "envs" / "sds" / "bin"
 ppath = ppath.resolve()
@@ -23,7 +23,7 @@ parser = argparse.ArgumentParser(
                     epilog='For example: `python ffmpeg/merge.py -n "Functions" -t 3.4-Functions`')
 parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
 parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='defaults.toml')
-parser.add_argument('-l', '--lesson', type=int, help="Name of the lesson in the project.toml configuration file.", default='1')
+parser.add_argument('-l', '--lesson', type=int, help="Name of the lesson in the project.toml configuration file.", default=1)
 parser.add_argument('-f', '--force', help="Force generation of video even if number of slides and audio segments doesn't match.", action='store_true')
 parser.add_argument('-q', '--quick', help="Quick generation (assumes MP4 segments haven't changed).", action='store_true')
 
@@ -265,12 +265,12 @@ if args.force or not fn_out.exists():
     cmd += f'  --defaults {args.project.replace("project","outro")} \\\n'
     cmd += f'  --lesson {str(int(args.lesson))} \\\n'
 
-    fn_in = str(Path(args.mp4 / f"{conf['lessons'][str(args.lesson)]['track'].strip()}_99_Outro.mp4"))
-    shutil.copy(str(fn_in), str(fn_out))
-
     if DEBUG:
         print(f"  i {cmd}")
     call(cmd, shell=True)
+
+    fn_in = str(Path(args.mp4 / f"{conf['lessons'][str(args.lesson)]['track'].strip()}_99_Outro.mp4"))
+    shutil.copy(str(fn_in), str(fn_out))
 
     print("  + Outro video file created.")
     print("=" * 25)
