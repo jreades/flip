@@ -46,40 +46,53 @@ Path(args.output).mkdir(parents=True, exist_ok=True)
 args.talk   = conf['lessons'][str(args.lesson)]['title'].strip()
 
 # Determine lengths:
-# - lfi == lecture fade in
-# - stfi == start fade in
-# - fil  == fade in length
-# - stfo == start fade out
-# - fol  == fade out length
-# - run_len == total length of video
-stfi = conf['timings']['start_fade_in']
-fil  = conf['timings']['fade_in_duration']
-stfo = conf['timings']['start_fade_out']
-fol  = conf['timings']['fade_out_duration']
-lfi  = stfo + (fol - fol/2) # crossfade
+# cfi           = 0.15  # Course title fade in
+# cfi_duration  = 0.6   # How long it takes to fade in
+# cfo           = 1.4   # Course title fade out
+# cfo_duration  = 1.2   # How long it takes to fade out
+# lfi           = 2.2   # Lecture fade in
+# lfi_duration  = 0.6   # How long it takes to fade in
+# lfo           = -1.3  # Lecture fade out
+# lfo_duration  = 1.2   # How long it takes to fade out
+cfi  = conf['timings']['cfi']
+cfil = conf['timings']['cfi_duration']
+cfo  = conf['timings']['cfo']
+cfol = conf['timings']['cfo_duration']
+lfi  = conf['timings']['lfi']
+lfil = conf['timings']['lfi_duration']
+lfo  = conf['timings']['lfo']
+lfol = conf['timings']['lfo_duration']
 
 if args.running != None and args.running > 0:
-    lfo  = args.running - (fol + 0.1) # lecture fade out
+    if lfo < 0:
+        lfo = args.running - lfol
+    else:
+        lfo = lfo
     run_len = args.running
 else:
-    lfo  = stfo + fil + 1.0 # lecture fade out
-    run_len = lfo + fol
+    run_len = lfo + lfol
 
 if DEBUG:
-    print(f"- Course fade in at {stfi:0.2f} for {fil:0.2f}s")
-    print(f"- Course fade out at {stfo:0.2f} for {fol:0.2f}s")
-    print(f"- Lecture fade in at {lfi:0.2f}s")
-    print(f"- Lecture fade out at {lfo:0.2f}s")
-    print(f"- Running length at {run_len:0.2f}s")
+    print(f"- Course fade in at {cfi :0.2f} for {cfil:0.2f}s")
+    print(f"- Course fade out at {cfo:0.2f} for {cfol:0.2f}s")
+    print(f"- Lecture fade in at {lfi:0.2f} for {lfil:0.2f}s")
+    print(f"- Lecture fade out at {lfo:0.2f} for {lfol:0.2f}s")
+    print(f"- Running length is {run_len:0.2f}s")
 
 # Start building the command
 cmd      = [f'ffmpeg -hide_banner -y'] #  \\\n
 filters  = {}
 overlays = {}
 
-print(f"+ Module details:\n\tStart fade in at {stfi:0.2f} and fade in for {fil:0.2f}\n\tFully visible from {(stfi+fil):0.2f} to {stfo:0.2f} ({stfo-(stfi+fil):0.2f}s)\n\tStart fade out at {stfo:0.2f} and fade out for {fol:0.2f}.")
-print(f"+ Lecture details:\n\tStart fade in at {lfi:0.2f} and fade in for {fil:0.2f}\n\tFully visible from {(lfi+fil):0.2f} to {lfo:0.2f} ({lfo-(lfi+fil):0.2f}s)\n\tStart fade out at {lfo:0.2f} and fade out for {fol:0.2f}.")
-print(f"+ Running length at {run_len:0.2f}.\n")
+print(f"""
+  + Course details:
+    - Start fade in at {cfi :0.2f} and fade in for {cfil:0.2f}.
+    - Start fade out at {cfo:0.2f} and fade out for {cfol:0.2f}.
+  + Lecture details:
+    - Start fade in at {lfi:0.2f} and fade in for {lfil:0.2f}
+    - Start fade out at {lfo:0.2f} and fade out for {lfol:0.2f}.
+  + Running length at {run_len:0.2f}.
+""")
 
 ############################
 # Start with the image elements
@@ -103,8 +116,8 @@ if conf['bgimg'].get('has', False) and Path(conf['bgimg']['path']).exists():
     cmd.append(f'-loop 1 -i {conf["bgimg"]["path"]} -t {scene.length}')
 
     # Build the filter for the background image
-    bi = img_fade(True, fil, stfi)
-    bo = img_fade(False, fol, lfo)
+    bi = img_fade(True, cfil, cfi )
+    bo = img_fade(False, lfol, lfo)
     filters['bgimg'] = f'{build_filter(len(filters), conf["bgimg"])} {bi}, {bo}'
 
     overlays['bgimg'] = overlay('0', '0', True)
@@ -114,8 +127,8 @@ if conf['logo'].get('has', False) and Path(conf['logo']['path']).exists():
     cmd.append(f'-loop 1 -i {conf["logo"]["path"]} -t {scene.length}')
 
     # Build the filter for the logo image
-    fi = img_fade(True, fil, stfi)
-    fo = img_fade(False, fol, stfo)
+    fi = img_fade(True, cfil, cfi )
+    fo = img_fade(False, cfol, cfo)
     filters['logo'] = f'{build_filter(len(filters), conf["logo"])} {fi}, {fo}'
 
     x = img_position.x(conf['logo'].get('x',0))
@@ -127,8 +140,8 @@ if conf['copyright'].get('has', False) and Path(conf['copyright']['path']).exist
     cmd.append(f'-loop 1 -i {conf["copyright"]["path"]} -t {scene.length}')
 
     # Build the filter for the logo image
-    fi = img_fade(True, fil, stfi)
-    fo = img_fade(False, fol, stfo)
+    fi = img_fade(True, cfil, cfi )
+    fo = img_fade(False, cfol, cfo)
     filters['copy'] = f'{build_filter(len(filters), conf["copyright"])} {fi}, {fo}'
 
     x = img_position.x(conf['copyright'].get('x',0))
@@ -153,8 +166,8 @@ for f in range(1, len(all_filters)):
 ############################
 # Now add the text elements
 ############################
-course_x_fade  = cross_fader(txt_fade(True, fil, stfi), txt_fade(False, fol, stfo))
-lecture_x_fade = cross_fader(txt_fade(True, fil, lfi), txt_fade(False, fol, lfo))
+course_x_fade  = cross_fader(txt_fade(True, cfil, cfi), txt_fade(False, cfol, cfo))
+lecture_x_fade = cross_fader(txt_fade(True, lfil, lfi), txt_fade(False, lfol, lfo))
 
 # Course title text
 if conf['course'].get('text', None) != None:
@@ -178,8 +191,9 @@ if conf['course'].get('text', None) != None:
 
         x = txt_position.x(conf['course'].get('x',0))
         y = txt_position.y(conf['course'].get('y',0)) + ymod
-    
-        print(f" Position: x={x}, y={y}")
+
+        if DEBUG:
+            print(f" Position: x={x}, y={y}")
 
         course = text(txt.replace(':','\\:'), x, y,
                 size=conf['course']['size'], color=conf['fonts']['fontcolor_light'], 

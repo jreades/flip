@@ -1,3 +1,9 @@
+# An abstract position class to provide a common interface
+# for text and image positions in ffmpeg filters. There is
+# some confusion around whether the `y` is somehow inverted
+# between drawtext and overlay filters, so we have separate
+# subclasses for each. They also have different ways of 
+# handling the width/height of the text/image.
 class position:
 
     def __init__(self, x:float, y:float):
@@ -18,10 +24,11 @@ class position:
     def __repr__(self):
         return f'x={self.get_x()}:y={self.get_y()}'
 
+# Text position subclass. Notice that the origin (0,0) is bottom-left
+# in ffmpeg, but not seemingly for drawtext? And height/width are based
+# on the text box.
 class txt_position(position):
 
-    # Notice!!!! Bottom-left is (0,0) in ffmpeg
-    # But not seemingly for drawtext???
     left   = float(0)
     top    = float(0)
 
@@ -31,6 +38,7 @@ class txt_position(position):
     right  = '(main_w-text_w)'
     bottom = '(main_h-text_h)'
 
+    # If working with this as a class.
     def get_x(self):
         if self._x == 0:
             return(f"{self.left}")
@@ -41,6 +49,7 @@ class txt_position(position):
         else:
             return(f"(main_w*{self._x:0.2f})")
 
+    # If working with this as a non-instantiated class.
     @classmethod
     def x(cls, x:float):
         if x == 0:
@@ -76,10 +85,9 @@ class txt_position(position):
     def __init__(self, x:float, y:float):
         super().__init__(x, y)
 
+# The image position subclass. Notice that the origin (0,0) is bottom-left
 class img_position(position):
 
-    # Notice!!!! Bottom-left is (0,0) in ffmpeg
-    # But not seemingly for drawtext???
     left   = float(0)
     bottom = float(0)
 
@@ -136,6 +144,8 @@ class img_position(position):
     def __init__(self, x:float, y:float):
         super().__init__(x, y)
 
+# Handles the overlay filter, which is mainly used
+# for adding images to a video.
 class overlay: 
     
     def __init__(self, x:str, y:str, shortest:bool):
@@ -146,6 +156,9 @@ class overlay:
     def __repr__(self):
         return f'overlay=x={self.x}:y={self.y}{":shortest=1" if self.shortest else ""}'
 
+# Handles the fade filter, which is used for both
+# images and text. The implementations are different
+# for each, so we have separate subclasses.
 class fade:
     fadein   = bool()
     duration = float()
@@ -158,11 +171,16 @@ class fade:
         self.start    = start
         self.alpha    = alpha
 
+# This is for fading images in and out. The code is relatively
+# easy to parse by reading the parameters.
 class img_fade(fade):
 
     def __repr__(self):
         return f'fade={"in" if self.fadein else "out"}:st={self.start:0.2f}:d={self.duration:0.2f}:alpha={self.alpha}'
-    
+
+# This is for fading text in and out. The code is a bit
+# more complex, as it uses ffmpeg's expression evaluation
+# capabilities. 
 class txt_fade(fade):
 
     def __repr__(self):
@@ -178,15 +196,22 @@ class txt_fade(fade):
             else:
                 return f"if(lt(t,{self.start:0.2f}),1,if(lt(t,{end_point:0.2f}),({self.duration:0.2f}-(t-{self.start:0.2f}))/{self.duration:0.2f},0))"
 
+# This is for cross-fading text, which is a combination
+# of a fade-in and a fade-out. The code is a bit more
+# complex, as it uses ffmpeg's expression evaluation
+# capabilities.
 class cross_fader(txt_fade):
 
     fade_in = None
     fade_out = None
 
+    # Pass in instances of txt_fade
     def __init__(self, fi:txt_fade, fo:txt_fade):
         self.fade_in  = fi
         self.fade_out = fo
 
+    # Insert the fade-in and fade-out expressions
+    # into the filter expression.
     def __repr__(self):
         return f'{self.last_rep(self.last_rep(str(self.fade_in),"1)",""),"))",",")}' \
              + f'{self.last_rep(str(self.fade_out),"0))","0))))")}'
@@ -194,7 +219,8 @@ class cross_fader(txt_fade):
     def last_rep(self, src:str, rep:str, sub:str):
         return src[::-1].replace(rep[::-1],sub[::-1],1)[::-1] if src.endswith(rep) else src
 
-
+# A simple scene class to hold the basic parameters
+# for the scene, such as length, color, size, and rate.
 class scene: 
 
     length   = None
@@ -208,6 +234,10 @@ class scene:
     def __repr__(self):
         return f'color={self.color}:s={"x".join([str(x) for x in list(self.size)])}'
 
+# This is for adding text to a video using the drawtext
+# filter. It supports fading in and out using the txt_fade
+# class. Font and style should be reasonably intuitive 
+# compared to many of the examples I found online.
 class text:
 
     fader = None
@@ -227,6 +257,7 @@ class text:
     def add_fader(self, f:txt_fade):
         self.fader = f
 
+    # Add the filter expression.
     def __repr__(self):
         return f"drawtext=fontfile='{self.font}\\:style={self.style}':text='{self.label}':" \
              + f"fontcolor={self.color}:fontsize={self.size}:x={self.x}:y={self.y}" \
