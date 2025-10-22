@@ -115,7 +115,7 @@ if not audio_src.exists():
     exit()
 
 track = AudioSegment.from_file(audio_src, format="m4a")
-print(f"Loaded {len(track):,}ms ({len(track)/(1000*60):0.2f}mn) of recording!")
+print(f"  + Loaded {len(track):,}ms ({len(track)/(1000*60):0.2f}mn) of recording!")
 print()
 
 for row in range(0, len(audio_ds[header[0]])):
