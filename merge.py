@@ -18,14 +18,13 @@ ppath = Path.home() / "anaconda3" / "envs" / "sds" / "bin"
 ppath = ppath.resolve()
 
 parser = argparse.ArgumentParser(
-                    prog='Lecture Video Generator',
-                    description='Generates a pre-recorded lecture from stills and audio files. You need to have generated these following a consistent naming/merge format.',
-                    epilog='For example: `python ffmpeg/merge.py -n "Functions" -t 3.4-Functions`')
+    prog='Lecture Video Generator',
+    description='Generates a pre-recorded lecture from stills and audio files. You need to have generated these following a consistent naming/merge format.',
+    epilog='For example: `python ffmpeg/merge.py -n "Functions" -t 3.4-Functions`'
+)
 parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
 parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='defaults.toml')
 parser.add_argument('-l', '--lesson', type=int, help="Name of the lesson in the project.toml configuration file.", default=1)
-parser.add_argument('-f', '--force', help="Force generation of video even if number of slides and audio segments doesn't match.", action='store_true')
-parser.add_argument('-q', '--quick', help="Quick generation (assumes MP4 segments haven't changed).", action='store_true')
 
 args = parser.parse_args()
 
@@ -60,12 +59,11 @@ if not args.merge.exists():
     print(f"+ Created {args.merge}")
 else:
     print(f"+ Found {args.merge}")
-    if not args.quick:
-        files = glob.glob(str(args.merge / "*.m4a"))
-        if len(files) > 0:
-            print(f"  - Emptying directory of already-rendered merge")
-            for f in files:
-                Path(f).unlink()
+    files = glob.glob(str(args.merge / "*.m4a"))
+    if len(files) > 0:
+        print(f"  - Emptying directory of already-rendered merge")
+        for f in files:
+            Path(f).unlink()
 
 args.audio = Path(conf['outputs']['audio']) / conf['lessons'][str(args.lesson)]['track'].strip()
 if not args.audio.exists():
@@ -145,14 +143,14 @@ if len(still_map) - len(audio_map) > 2:
         print("You appear to be skipping some slides, which is fine.")
         print("In that case, we skip the final two slides on the assumption they are references and a thank you.")
     print("!" * 30)
-    if not args.quick: exit()
+    exit()
 
 ###############
 # For the first slide...
-print("=" * 25)
+print("-" * 25)
 print("o Generating first slide...")
 fn_out = Path(args.merge / safe.sub('_', str(still_map[1].stem) + ".mp4"))
-if args.force or not fn_out.exists():
+if True:
     # Find out how long the intro audio track is
     probe =  f'ffprobe -hide_banner -sexagesimal -show_entries format=duration '
     probe += f'{re.escape(str(audio_map[1]))}'
@@ -195,25 +193,21 @@ if args.force or not fn_out.exists():
     call(cmd, shell=True)
 
     print("  + First slide generated.")
-    print("=" * 25)
-else:
-    print(f"+ Found existing Intro slide {fn_out}. Skipping...")
+    print("." * 25)
 
 # Now get rid of the first slide
 del(still_map[1])
 
 # For the remaining stills
-print("=" * 25)
+print("-" * 25)
 print("o Generating remaining slide...")
 for idx in sorted(still_map.keys()):
+    continue
     print(f"{'-' * 25}")
     print(f"o Generating slide {idx}...")
 
     fn_out = Path(args.merge / safe.sub('_', str(still_map[idx].stem) + ".mp4"))
-    if fn_out.exists() and not args.force:
-        print(f"  - Output file {fn_out} already exists. Skipping.")
-        continue
-    elif video_map.get(idx, False) and video_map[idx].endswith('.mp4'):
+    if video_map.get(idx, False) and video_map[idx].endswith('.mp4'):
         try:
             print(f"  + Found MP4 file to include {idx}:{video_map[idx]}")
             # Transcode to the correct format
@@ -254,11 +248,10 @@ for idx in sorted(still_map.keys()):
         continue
 print("+ All segments generated.")
 
-print("=" * 25)
+print("-" * 25)
 print("o Generating outro slide...")
 fn_out = Path(args.merge / safe.sub('_',f"{conf['lessons'][str(args.lesson)]['track'].strip()}_99_Outro.mp4"))
-if args.force or not fn_out.exists():
-
+if True:
     cmd = ''
     cmd += f'{ppath / "python"} {"outro.py"} \\\n'
     cmd += f'  --project {args.project} \\\n'
@@ -273,19 +266,17 @@ if args.force or not fn_out.exists():
     shutil.copy(str(fn_in), str(fn_out))
 
     print("  + Outro video file created.")
-    print("=" * 25)
-else:
-    print(f"+ Found existing outro slide {fn_out}. Skipping...")
+    print("." * 25)
 
 # Now stitch together the MP4 segments
 print("=" * 25)
 print("o Stitching segments together...")
 
 merge_pat = re.compile(f"{safe.sub('_',conf['lessons'][str(args.lesson)]['track'].strip())}" + r'_(\d{1,2})_')
-merge_map = {int(merge_pat.search(str(x))[1]):x for x in args.merge.glob("*.mp4")}
+merge_map = {int(merge_pat.search(str(x))[1]):x for x in [y for y in args.merge.glob("*.mp4") if merge_pat.search(str(y)) is not None]}
 
 if DEBUG:
-    print(merge_map)
+    print(", ".join([f"{k} -> {merge_map[k]}" for k in sorted(merge_map.keys())]))
 
 with open(Path(args.merge / 'segments.txt'), 'w') as f:
     for s in sorted(merge_map.keys()):
