@@ -202,7 +202,6 @@ del(still_map[1])
 print("-" * 25)
 print("o Generating remaining slide...")
 for idx in sorted(still_map.keys()):
-    continue
     print(f"{'-' * 25}")
     print(f"o Generating slide {idx}...")
 
@@ -313,7 +312,7 @@ fn_tmp.unlink(missing_ok=True)
 
 print("  + Done.")
 
-print("=" * 25)
+print("=" * 35)
 
 print(f"+++ {conf['lessons'][str(args.lesson)]['track'].strip()} talk generated +++")
 

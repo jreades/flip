@@ -125,7 +125,7 @@ for l_num in lesson_list:
     else:
         print(f"- Skipping extraction of lesson {l_num} since `-m` set.")
 
-    print(f"  + Done processing lesson {l_num}")
+    print(f"+++ Done processing lesson {l_num} +++")
     print(f"=" * 40)
     # End loop here
 
