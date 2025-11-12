@@ -6,8 +6,7 @@
 ######################
 import argparse, tomllib
 from subprocess import call, check_output
-import re, glob, shutil
-import math
+import re, glob, shutil, math
 from pathlib import Path
 
 safe = re.compile(r'[^a-zA-Z0-9\-\.]+')
@@ -25,6 +24,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
 parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='defaults.toml')
 parser.add_argument('-l', '--lesson', type=int, help="Name of the lesson in the project.toml configuration file.", default=1)
+parser.add_argument('-m', '--nomerge', type=int, help="Assumes there is no need to re-merge the content.", default=False)
 
 args = parser.parse_args()
 
@@ -59,11 +59,12 @@ if not args.merge.exists():
     print(f"+ Created {args.merge}")
 else:
     print(f"+ Found {args.merge}")
-    files = glob.glob(str(args.merge / "*.m4a"))
-    if len(files) > 0:
-        print(f"  - Emptying directory of already-rendered merge")
-        for f in files:
-            Path(f).unlink()
+    if not args.nomerge:
+        files = glob.glob(str(args.merge / "*.mp4"))
+        if len(files) > 0:
+            print(f"  - Emptying directory of already-rendered merge")
+            for f in files:
+                Path(f).unlink()
 
 args.audio = Path(conf['outputs']['audio']) / conf['lessons'][str(args.lesson)]['track'].strip()
 if not args.audio.exists():
@@ -124,16 +125,22 @@ if DEBUG:
 ######################
 # Organise the existing video
 video_pat = re.compile(r'_(\d{1,2})_')
-video_map = {int(video_pat.search(str(x))[1]):x for x in video_files}
+try:
+    video_map = {int(video_pat.search(str(x))[1]):x for x in video_files}
+except TypeError:
+    print(f"No matches on pattern {video_pat.pattern} in video files: {', '.join([str(x) for x in video_files])}.")
+    video_map = {}
+    exit()
 
 if DEBUG:
     print(f" Video map: {video_map}")
 
-# There should be one fewer stills files because
-# we are going to cut the intro slide from the
+# There should be 1-2 fewer stills files than audio
+# because we are going to cut the intro slide from the
 # stills (and replace that with an auto-generated)
-# one, and cut the 'Resources' slide from the end.
-if len(still_map) - len(audio_map) > 2:
+# one, and cut the 'Resources' and 'Thank you' slides 
+# from the end.
+if len(still_map) - (len(audio_map) + len(video_map)) > 2:
     print("!" * 30)
     print(f"Unequal number of stills ({len(still_map)}) and audio ({len(audio_map)}) files found.")
     if max(still_map.keys()) - max(audio_map.keys()) > 2:
@@ -206,15 +213,20 @@ for idx in sorted(still_map.keys()):
     print(f"o Generating slide {idx}...")
 
     fn_out = Path(args.merge / safe.sub('_', str(still_map[idx].stem) + ".mp4"))
-    if video_map.get(idx, False) and video_map[idx].endswith('.mp4'):
+    if video_map.get(idx, False) and str(video_map[idx].resolve()).endswith('.mp4'):
         try:
             print(f"  + Found MP4 file to include {idx}:{video_map[idx]}")
             # Transcode to the correct format
+            # cmd = ''
+            # cmd += f'ffmpeg -hide_banner -y -r 30 \\\n'
+            # cmd += f'-i {re.escape(str(video_map[idx]))} \\\n'
+            # cmd += f'-c:v libx264 -pix_fmt yuv420p \\\n'
+            # cmd += f'-c:a 64k \\\n'
+            # cmd += f'{re.escape(str(fn_out))}'
             cmd = ''
-            cmd += f'ffmpeg -hide_banner -y -r 30 \\\n'
+            cmd += f'ffmpeg -hide_banner -y -r 30 -fflags +genpts \\\n'
             cmd += f'-i {re.escape(str(video_map[idx]))} \\\n'
-            cmd += f'-c:v libx264 -pix_fmt yuv420p \\\n'
-            cmd += f'-b:a 64k \\\n'
+            cmd += f'-c:v libx264 -b:a 64k \\\n' # -map 0 -avoid_negative_ts make_zero \\\n'
             cmd += f'{re.escape(str(fn_out))}'
             if DEBUG:
                 print(f"  o {cmd}")
@@ -288,7 +300,8 @@ fn_out = args.final / f"{conf['lessons'][str(args.lesson)]['week']}.{conf['lesso
 cmd = ''
 cmd += f"ffmpeg -hide_banner -y -f concat -safe 1 "
 cmd += f"-i {str(args.merge / 'segments.txt')} "
-cmd += f"-c:v libx264 -af aresample=async=1000 -pix_fmt yuv420p \\\n"
+cmd += f"-c:v libx264 -c:a aac -vsync 2 "
+cmd += f'-af "aresample=async=1:first_pts=0" -pix_fmt yuv420p \\\n'
 cmd += f"{fn_tmp}"
 
 if DEBUG: 
