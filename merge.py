@@ -217,16 +217,11 @@ for idx in sorted(still_map.keys()):
         try:
             print(f"  + Found MP4 file to include {idx}:{video_map[idx]}")
             # Transcode to the correct format
-            # cmd = ''
-            # cmd += f'ffmpeg -hide_banner -y -r 30 \\\n'
-            # cmd += f'-i {re.escape(str(video_map[idx]))} \\\n'
-            # cmd += f'-c:v libx264 -pix_fmt yuv420p \\\n'
-            # cmd += f'-c:a 64k \\\n'
-            # cmd += f'{re.escape(str(fn_out))}'
             cmd = ''
             cmd += f'ffmpeg -hide_banner -y -r 30 -fflags +genpts \\\n'
             cmd += f'-i {re.escape(str(video_map[idx]))} \\\n'
-            cmd += f'-c:v libx264 -b:a 64k \\\n' # -map 0 -avoid_negative_ts make_zero \\\n'
+            cmd += f'-c:v libx264 -pix_fmt yuv420p \\\n'
+            cmd += f'-c:a aac -b:a 64k -ar 48000 -ac 2 \\\n' # -map 0 -avoid_negative_ts make_zero \\\n'
             cmd += f'{re.escape(str(fn_out))}'
             if DEBUG:
                 print(f"  o {cmd}")
@@ -300,7 +295,7 @@ fn_out = args.final / f"{conf['lessons'][str(args.lesson)]['week']}.{conf['lesso
 cmd = ''
 cmd += f"ffmpeg -hide_banner -y -f concat -safe 1 "
 cmd += f"-i {str(args.merge / 'segments.txt')} "
-cmd += f"-c:v libx264 -c:a aac -vsync 2 "
+cmd += f"-c:v libx264 -c:a aac \\\n" #  -fps_mode vfr (variable frame rate)
 cmd += f'-af "aresample=async=1:first_pts=0" -pix_fmt yuv420p \\\n'
 cmd += f"{fn_tmp}"
 
