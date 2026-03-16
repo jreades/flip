@@ -149,6 +149,7 @@ if len(still_map) - (len(audio_map) + len(video_map)) > 2:
     else:
         print("You appear to be skipping some slides, which is fine.")
         print("In that case, we skip the final two slides on the assumption they are references and a thank you.")
+    print("To ignore this and render the video anyway use `-q` for 'quick' rendering.")
     print("!" * 30)
     exit()
 

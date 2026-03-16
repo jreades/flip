@@ -8,18 +8,15 @@ The format for this is fairly important and all four columns are required. The s
 | -------- | -------- | -------- | ------------------ |
 | 0:00.00  | 0:41.11  | 1        | Introduction       |
 | 0:41.11  | 1:23.07  | 2        | Variables          |
-| 1:23.07  | 3:41.05  | 3        | Types              |
-| 3:41.05  | 5:49.08  | 6        | Change That        |
-| 5:49.08  | 6:50.22  | 9        | All Objects        |
+| 1:23.08  | 3:41.05  | 3        | Types              |
 
-## Lists
+## Iteration
 
-| Start    | End      | Sequence | Name                 |
-| -------- | -------- | -------- | -------------------- |
-| 0:00.00  | 0:27.92  | 1        | Introduction         |
-| 0:27.92  | 1:04.11  | 2        | What is a List 1     |
-| 1:04.11  | 1:27.63  | 3        | What is a List 2     |
-| 11:33.80 | 12:01.68 | 27       | Special List         |
+| Start    | End      | Sequence | Name            |
+| -------- | -------- | -------- | --------------- |
+| 0:01.23  | 0:33.62  | 1        | Introduction    |
+| 0:34.19  | 01:00.62 | 2        | Definition      |
+| 01:01.10 | 01:34.10 | 3        | Two Types       |
 
 ## Mapping
 

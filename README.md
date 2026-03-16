@@ -54,12 +54,14 @@ brew install ffmpeg
 
 There are seven scripts, but *normally* only some of them are called directly:
 
-- `process.py` — all-in-one script to do everything when you are confident of having an effective workflow and all of the configuration parameters configured correctly.
-- `extract_deck.py` — script used to extract an HTML/JS-based presentation to a series of PNG images. Can be called directly during development/testing, but normally called from `process.py`.
-- `extract_audio.py` — script used to extract a set of M4A files from a source M4A track (chosen for simplicity). It will look in an `audio_segments.md` file for a header that matches the filename of the talk and use the markdown table immediately below that to select start/stop positions.
+- `flip.py` — all-in-one script to extract PNGs, extract audio, and stich everything together. 
+- `extract_deck.py` — script used to extract an HTML/JS-based presentation to a series of PNG images. Can be called directly during development/testing, but normally called from `flip.py`.
+- `extract_audio.py` — script used to extract a set of M4A sub-files from a source M4A track (chosen for simplicity). It will look in an `audio_segments.md` file for a header that matches the filename of the talk and use the markdown table immediately below that to select start/stop positions.
 - `merge.py` — script used to merge PNGs and M4A audio track into a single output MP4 file that is ready for posting online. Can be run separately to test output prior to scaling the process to module/course level.
 - `intro.py` – script used to create an 'intro' movie clip that can replace the 'Welcome' slide in a typical presentation. This makes use of the classes provided by `ffmpeg.py` to make it a bit easier to interact with ffmpeg when rendering dynamic content.
 - `outry.py` – script used to create the 'outro' equivalent of the introductory clip. Generally, it's fading out and showing copyright, thanks, or other relevant material.
+
+You *might* find it easier to try playing around with the `extract`, `merge`, `intro`, and `outro` scripts separately *before* using `flip.py` so that you can be confident of having an effective workflow and all of the configuration parameters configured correctly.
 
 Because everything here is scriptable, you could create a shell script to (re)generate the videos for each and every flipped lecture in a module/course. This could be particularly useful for bulk-updates (such as a change of year, copyright notice, or name). 
 
@@ -67,72 +69,23 @@ A 'perk' here is that by making it easy to embed the the year this helps to prot
 
 ### All in One
 
-The `process.py` script integrates all of the separate steps listed below but, as a result, has a lot of flags to grapple with. These can be viewed by simply running:
+The `flip.py` script integrates all of the separate steps listed below but, as a result, has a lot of flags to grapple with. These can be viewed by simply running:
 
 ```bash
-python flip/process.py --help
+python flip/flip.py --help
 ```
 
-But basic usage is:
+Normally, you will have set up a project TOML file that provides all of the information needed for your module. If you are rendering *multiple* modules then you might want to move the more generic parameters to a defaults TOML file that you can also specify. The parameters of the two files are merged at render time with any duplicate keys from defaults being overwritten by the project. The overall process could probably use some tweaking, but basically, `flip` will look in the project file for the lesson number that you want to render and use that to drive the extraction and generationg process.
+
+So a simple use-case would be:
 
 ```bash
-process.py [-h] [-t TALK] [-n NAME] [-s SERVER] [-d] [-a] [-f] [-q]
+python flip.py -p toml/project.toml -l 1
 ```
 
-For example:
+## Audio
 
-```bash
-python flip/process.py -t 10.1-Visualising_Data -n "Visualising Data" -s 'http://localhost:4200/lectures/' -d -a -f
-```
-
-The parameters are:
-
-```
-  -h, --help            show this help message and exit
-  -t TALK, --talk TALK  The folder name with the talk.
-  -n NAME, --name NAME  The name of the talk, for multi-line separate with \n
-  -s SERVER, --server SERVER
-                        Where to access the Reveal.js slides
-  -d, --exportdeck      Export the slide deck to PNG (turning this option off is useful when you are mucking about with the audio and output).
-  -a, --exportaudio     Export the audio source to M4A (turning this option off is useful when you are mucking about with the stills and output).
-  -f, --force           Force generation of video even if number of slides and audio segments doesn't match.
-  -q, --quick           Quick (re)generation (assumes MP4 segments haven't changed).
-```
-
-### Exporting Stills
-
-This will extract a Reveal.js deck to a series of PNG files in the `_export` directory. Again, help can be accessed using:
-
-```bash
-python flip/extract_deck.py --help
-```
-
-But basic usage is:
-
-```bash
-extract_deck.py [-h] [-t TALK] [-s SERVER]
-```
-
-For example:
-
-```bash
-python flip/extract.py -t 3.4-Functions -s https://jreades.github.io/fsds/lectures
-```
-
-There are only two parameters:
-
-```bash
-  -h, --help            show this help message and exit
-  -t TALK, --talk TALK  The folder name of the talk.
-  -s SERVER, --server SERVER
-                        Where to access the Reveal.js slides
-```
-
-The talks will be exported to `_export/{talk}` with one PNG file per slide in the Reveal.js presentation. Builds are only supported insofar as they are supported by `decktape`.
-
-### Exporting Audio
-
-Audio can be captured however you like, but [OcenAudio](https://www.ocenaudio.com/en) seems to be able to do this quite effectively and quickly if you want to stick to FOSS. I particularly appreciated the availability of VST plugins that could be used here, such as, [AconDigital’s Extract:Dialogue](https://acondigital.com/products/extract-dialogue).
+The source audio can be captured however you like, but [OcenAudio](https://www.ocenaudio.com/en) seems to be able to do this quite effectively and quickly if you want to stick to FOSS. I particularly appreciated the availability of VST plugins that could be used here, such as, [AconDigital’s Extract:Dialogue](https://acondigital.com/products/extract-dialogue).
 
 #### Audio Capture
 
@@ -140,7 +93,7 @@ I've assumed that the simplest way to capture the audio needed for a flipped tea
 
 1. Set up your audio recording equipment.
 2. Record your talk.
-3. Save the audio file to the requisite `flip` folder.
+3. Save the audio file to the `audio` folder specified in the project TOML file.
 
 This audio file is presumed to provide the source for each paired audio+PNG segment, so the next thing is to tell `flip` how to perform this task.
 
@@ -161,7 +114,7 @@ So the format of the table is important, and this **includes** the format of the
 | 3:41.05 | 5:49.08 | 5        | Change That  |
 ```
 
-**Note**: as in the example above, if you want to skip a slide from your talk, simply skip over that number in the `sequence` column of the markdown table (3 is ommitted here). `merge.py` will use the integer id of the PNGs and exported M4A segments to 'zip' up the parts into a movie.
+**Note**: as in the example above, if you want to skip a slide from your talk or change the sequence, simply manipulate the `sequence` column of the markdown table (3 is ommitted here). `merge.py` will use the integer id of the PNGs and exported M4A segments to 'zip' up the parts into a movie. That said, I do need to work a bit on how this works as I often find that the wrong slide/audio are stitched together when I try to get too clever with manipulating the sequence rather than just updating the slide deck.
 
 Some tips:
 
@@ -184,38 +137,17 @@ Or in Audacity, if you still use that, you can do it in the following manner:
 6. Click `Preview` to hear the effect and adjust the settings again if necessary.
 7. Once you're happy with the noise reduction amount click 'OK'
 
-## Generating the Movie
+## Quick Start
 
-So now that you have your exported audio in `_audio/{talk}` and your exported stills in `_export/{talk}` then you are ready to `merge` these sources into a finished video. Basic usage would be:
+In principle, if you've installed the tools, then the following code should work to render two short videos based on the current (as of early 2026) slide order for my [Foundations of Spatial Data Science](https://jreades.github.io/sds/) module and the supplied audio in the GitHub repo.
 
-```bash
-merge.py [-h] [-n NAME] [-t TALK] [-o OUTPUT] [-f] [-q]
-```
-
-For example:
+Code to do this is:
 
 ```bash
-python flip/merge.py -n "Functions" -t 3.4-Functions -f
+python flip.py -p toml/project.toml -l 1 -q
+python flip.py -p toml/project.toml -l 4 -q
 ```
 
-Here are the options:
+The `-q` option tells flip to ignore the mismatch between then number of slides it extracted and the number of audio segments supplied in `lessons.md`. 
 
-```
-  -h, --help            show this help message and exit
-  -n NAME, --name NAME  The name of the talk, for multi-line separate with \n
-  -t TALK, --talk TALK  The folder name with the talk.
-  -o OUTPUT, --output OUTPUT
-                        Name of the ouptut MP4 file.
-  -f, --force           Force generation of video even if number of slides and audio segments doesn't match.
-  -q, --quick           Quick generation (assumes MP4 segments haven't changed).
-```
-
-This script does five things:
-
-1. Generates an intro video segment by calling `intro.py` using the `-n` (name) to create the title sequence (which involves some copyright info and a fade-in for the title).
-2. Generates an 'outro' video segment by calling `outro.py` which is expected to be the same for all talks (since we want consistency across the pre-recorded videos).
-3. Generates video segments for each slide using `ffmpeg` to merge the PNG file with the matching M4A file. Currently you can only one, and only one, match between a PNG and a M4A file.
-4. Merges these video segments together into a single long-form video.
-5. Trims out the first 0.075 seconds of the merged video since, for some reason, this is always a black screen.
-
-The results are exported to `_merged/{talk}.mp4` and this is the final output that can be uploaded to Streams, YouTube, whatever.
+You should then find the constituent parts in the various `_<step>` folders with the final video appearing in `_output`.

@@ -4,9 +4,9 @@
 
 [project]
 size   = "1280x720"
-server = "http://localhost:4200/lectures"
-audio  = "/Volumnes/Audio/"
-cuts   = "../segments.md"
+server = "https://jreades.github.io/fsds/lectures"
+audio  = "audio_src/"
+cuts   = "lessons.md"
 
 [outputs]
 audio  = "_m4a"
@@ -27,17 +27,9 @@ track    = "Python the Basics-1"
 week     = 2
 sequence = 1
 
-[lessons.2]
-title    = "The Basics\n(Part 2)"
+[lessons.4]
+title    = "Iteration"
 subtitle = "Data Science for All"
-track    = "Python the Basics-2"
+track    = "Iteration"
 week     = 2
-sequence = 2
-
-[lessons.3]
-title    = "Lists"
-subtitle = "Data Science for All"
-track    = "Lists"
-week     = 2
-sequence = 3
-
+sequence = 4

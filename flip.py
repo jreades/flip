@@ -11,9 +11,9 @@ ppath = Path.home() / "anaconda3" / "envs" / "sds" / "bin"
 ppath = ppath.resolve()
 
 parser = argparse.ArgumentParser(
-   prog='process.py',
-   description='Integrates the various steps in extracting and converting a lecture to a video (audio has to be generated separately for now).',
-   epilog='For example: `python flip.py -p ../ffmpeg/project.toml -i -a -l 11`')
+                    prog='process.py',
+                    description='Integrates the various steps in extracting and converting a lecture to a video (audio has to be generated separately for now).',
+                    epilog='For example: `python flip.py -p toml/project.toml -l 1`')
 parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
 parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='defaults.toml')
 parser.add_argument('-l', '--lesson', type=str, help="The number (or range) of the lesson in the project.toml configuration file. Examples include: `1`, `3-5`, `3,7-8,9`", default='-1')
