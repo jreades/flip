@@ -3,6 +3,10 @@
 ######################
 
 [project]
+vcodec = "libx265"
+acodec = "aac"
+arate  = 96
+crf    = 28
 size   = "1280x720"
 server = "https://jreades.github.io/fsds/lectures"
 audio  = "audio_src/"

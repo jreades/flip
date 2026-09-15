@@ -189,7 +189,7 @@ if conf['author'].get('text', None) != None:
 
 out = str(Path(args.output / f"{conf['lessons'][str(args.lesson)]['track'].strip()}_99_Outro.mp4"))
 
-cmd.append(f'" -r 30 -c:v libx264 -c:a aac -shortest') # That double-quote is important!
+cmd.append(f'" -r 30 -c:v {conf["project"]["vcodec"]} -crf {conf["project"]["crf"]} -c:a {conf["project"]["acodec"]} -shortest') # That double-quote is important!
 cmd.append(f'-pix_fmt yuv420p -tune stillimage')
 cmd.append(f'{re.escape(out)}')
 

@@ -193,7 +193,7 @@ if True:
     cmd += f'ffmpeg -hide_banner -y \\\n'
     cmd += f'-i {re.escape(fn_in)} \\\n'
     cmd += f'-i {re.escape(str(audio_map[1]))} \\\n'
-    cmd += f'-c:v libx264 -tune stillimage -pix_fmt yuv420p -c:a aac \\\n'
+    cmd += f'-c:v {conf["project"]["vcodec"]} -crf {conf["project"]["crf"]} -tune stillimage -pix_fmt yuv420p -c:a {conf["project"]["acodec"]} \\\n'
     cmd += f'{re.escape(str(fn_out))}'
     
     if DEBUG:
@@ -221,8 +221,8 @@ for idx in sorted(still_map.keys()):
             cmd = ''
             cmd += f'ffmpeg -hide_banner -y -r 30 -fflags +genpts \\\n'
             cmd += f'-i {re.escape(str(video_map[idx]))} \\\n'
-            cmd += f'-c:v libx264 -pix_fmt yuv420p \\\n'
-            cmd += f'-c:a aac -b:a 64k -ar 48000 -ac 2 \\\n' # -map 0 -avoid_negative_ts make_zero \\\n'
+            cmd += f'-c:v {conf["project"]["vcodec"]} -crf {conf["project"]["crf"]} -pix_fmt yuv420p \\\n'
+            cmd += f'-c:a {conf["project"]["acodec"]} -b:a 64k -ar 48000 -ac 2 \\\n' # -map 0 -avoid_negative_ts make_zero \\\n'
             cmd += f'{re.escape(str(fn_out))}'
             if DEBUG:
                 print(f"  o {cmd}")
@@ -238,7 +238,7 @@ for idx in sorted(still_map.keys()):
             cmd += f'ffmpeg -hide_banner -y -r 30 -loop 1 \\\n'
             cmd += f'-i {re.escape(str(still_map[idx]))} \\\n'
             cmd += f'-i {re.escape(str(audio_map[idx]))} \\\n'
-            cmd += f'-c:v libx264 -tune stillimage -shortest -pix_fmt yuv420p \\\n'
+            cmd += f'-c:v {conf["project"]["vcodec"]} -tune stillimage -shortest -pix_fmt yuv420p \\\n'
             cmd += f'-b:a 64k \\\n'
             cmd += f'{re.escape(str(fn_out))}'
             if DEBUG:
@@ -296,7 +296,7 @@ fn_out = args.final / f"{conf['lessons'][str(args.lesson)]['week']}.{conf['lesso
 cmd = ''
 cmd += f"ffmpeg -hide_banner -y -f concat -safe 1 "
 cmd += f"-i {str(args.merge / 'segments.txt')} "
-cmd += f"-c:v libx264 -c:a aac \\\n" #  -fps_mode vfr (variable frame rate)
+cmd += f"-c:v {conf["project"]["vcodec"]} -crf {conf["project"]["crf"]} -c:a {conf["project"]["acodec"]} \\\n" #  -fps_mode vfr (variable frame rate)
 cmd += f'-af "aresample=async=1:first_pts=0" -pix_fmt yuv420p \\\n'
 cmd += f"{fn_tmp}"
 
