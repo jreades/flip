@@ -16,10 +16,14 @@ DEBUG = False
 ppath = Path.home() / "anaconda3" / "envs" / "sds" / "bin"
 ppath = ppath.resolve()
 
+# Sibling scripts are resolved relative to this file so that
+# flip can be run from any working directory.
+script_dir = Path(__file__).resolve().parent
+
 parser = argparse.ArgumentParser(
     prog='Lecture Video Generator',
     description='Generates a pre-recorded lecture from stills and audio files. You need to have generated these following a consistent naming/merge format.',
-    epilog='For example: `python ffmpeg/merge.py -n "Functions" -t 3.4-Functions`'
+    epilog='For example: `python flip/merge.py -n "Functions" -t 3.4-Functions`'
 )
 parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
 parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='defaults.toml')
@@ -177,9 +181,9 @@ if True:
     transl_table = dict( [ (ord(x), ord(y)) for x,y in zip(u"'''\"\"--", u"‘’´“”–-") ] )
     
     cmd = ''
-    cmd += f'{ppath / "python"} {"intro.py"} \\\n'
+    cmd += f'{ppath / "python"} {script_dir / "intro.py"} \\\n'
     cmd += f'  --project {args.project} \\\n'
-    cmd += f'  --defaults {args.project.replace("project","intro")} \\\n'
+    cmd += f'  --defaults {Path(args.project).with_name("intro.toml")} \\\n'
     cmd += f'  --running {hrs * 60 * 60 + mns * 60 + sec + ms/100} \\\n'
     cmd += f'  --lesson {str(int(args.lesson))} \\\n'
     
@@ -260,9 +264,9 @@ print("o Generating outro slide...")
 fn_out = Path(args.merge / safe.sub('_',f"{conf['lessons'][str(args.lesson)]['track'].strip()}_99_Outro.mp4"))
 if True:
     cmd = ''
-    cmd += f'{ppath / "python"} {"outro.py"} \\\n'
+    cmd += f'{ppath / "python"} {script_dir / "outro.py"} \\\n'
     cmd += f'  --project {args.project} \\\n'
-    cmd += f'  --defaults {args.project.replace("project","outro")} \\\n'
+    cmd += f'  --defaults {Path(args.project).with_name("outro.toml")} \\\n'
     cmd += f'  --lesson {str(int(args.lesson))} \\\n'
 
     if DEBUG:

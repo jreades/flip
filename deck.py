@@ -10,7 +10,7 @@ DEBUG = False
 parser = argparse.ArgumentParser(
                     prog='extract_deck.py',
                     description='Generates a set of PNGs from a Reveal.js lecture. Requires node.js and decktape to be installed.',
-                    epilog='For example: `python ffmpeg/extract.py -t 3.4-Functions -s https://jreades.github.io/fsds/lectures`')
+                    epilog='For example: `python flip/extract.py -t 3.4-Functions -s https://jreades.github.io/fsds/lectures`')
 parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
 parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='defaults.toml')
 parser.add_argument('-l', '--lesson', type=int, help="Name of the lesson in the project.toml configuration file.", default=1)

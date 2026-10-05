@@ -12,7 +12,7 @@ DEBUG = False
 parser = argparse.ArgumentParser(
                     prog='Audio Segment Generator',
                     description='Generates a set of audio segments from a single m4a file. Requires Audacity to be installed and running.',
-                    epilog='For example: `python ffmpeg/extract_audio.py -t 6.2-Randomness`')
+                    epilog='For example: `python flip/extract_audio.py -t 6.2-Randomness`')
 parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
 parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='defaults.toml')
 parser.add_argument('-l', '--lesson', type=str, help="Name of the lesson in the project.toml configuration file.", default='1')

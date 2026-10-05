@@ -10,17 +10,21 @@ DEBUG = False
 ppath = Path.home() / "anaconda3" / "envs" / "sds" / "bin"
 ppath = ppath.resolve()
 
+# Sibling scripts are resolved relative to this file so that
+# flip can be run from any working directory.
+script_dir = Path(__file__).resolve().parent
+
 parser = argparse.ArgumentParser(
                     prog='process.py',
                     description='Integrates the various steps in extracting and converting a lecture to a video (audio has to be generated separately for now).',
-                    epilog='For example: `python flip.py -p toml/project.toml -l 1`')
+                    epilog='For example: `python flip/flip.py -p flip.settings/project.toml -l 1`')
 parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
 parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='defaults.toml')
 parser.add_argument('-l', '--lesson', type=str, help="The number (or range) of the lesson in the project.toml configuration file. Examples include: `1`, `3-5`, `3,7-8,9`", default='-1')
 parser.add_argument('-i', '--noimage', help="Skip export of the slide deck to PNG (useful when you are mucking about with the audio and output).", action='store_true')
 parser.add_argument('-a', '--noaudio', help="Skip export of the audio files to M4A (useful when you are mucking about with the audio and output).", action='store_true')
 parser.add_argument('-m', '--nomerge', help="Skip merge of audio and video (assumes MP4 segments haven't changed).", action='store_true')
-parser.add_argument('-f', '--force', help="Force generation of new images, audio, and video.", action='store_true')
+parser.add_argument('-f', '--force', help="Force generation of new images, audio, and video (overrides `-i`, `-a`, and `-m`).", action='store_true')
 
 args = parser.parse_args()
 
@@ -71,12 +75,12 @@ for l_num in lesson_list:
     print("=" * 40)
     
     # Extract Slides
-    if not args.noimage and not args.force:
+    if args.force or not args.noimage:
         print("." * 40)
         print("." * 11 + " Extracting deck " + "." * 12)
         print("." * 40)
         cmd = ''
-        cmd += f'{ppath / "python"} {"deck.py"} \\\n'
+        cmd += f'{ppath / "python"} {script_dir / "deck.py"} \\\n'
         cmd += f'  -p {args.project} \\\n'
         cmd += f'  -l {l_num}'
 
@@ -89,12 +93,12 @@ for l_num in lesson_list:
         print(f"- Skipping extraction of lesson {l_num} since `-i` set.")
 
     # Extract Audio
-    if not args.noaudio and not args.force:
+    if args.force or not args.noaudio:
         print("." * 40)
         print("." * 11 + " Extracting audio " + "." * 12)
         print("." * 40)
         cmd = ''
-        cmd += f'{ppath / "python"} {"audio.py"} \\\n'
+        cmd += f'{ppath / "python"} {script_dir / "audio.py"} \\\n'
         cmd += f'  -p {args.project} \\\n'
         cmd += f'  -l {l_num}'
 
@@ -107,15 +111,14 @@ for l_num in lesson_list:
         print(f"- Skipping extraction of lesson {l_num} since `-a` set.")
 
     # Merge Audio and Video
-    if not args.nomerge and not args.force:
+    if args.force or not args.nomerge:
         print("." * 40)
         print("." * 15 + " Merging. " + "." * 15)
         print("." * 40)
         cmd = ''
-        cmd += f'{ppath / "python"} {"merge.py"} \\\n'
+        cmd += f'{ppath / "python"} {script_dir / "merge.py"} \\\n'
         cmd += f'  -p {args.project} \\\n'
-        cmd += f'  -l {l_num} \\\n'
-        cmd += f'  -l {l_num} \\\n'
+        cmd += f'  -l {l_num}'
 
         print(f"  Add `-m` to skip merge of audio and video files.")
         if DEBUG:
@@ -123,7 +126,7 @@ for l_num in lesson_list:
             print(f"{cmd}")
         call(cmd, shell=True)
     else:
-        print(f"- Skipping extraction of lesson {l_num} since `-m` set.")
+        print(f"- Skipping merge of lesson {l_num} since `-m` set.")
 
     print(f"+++ Done processing lesson {l_num} +++")
     print(f"=" * 40)
