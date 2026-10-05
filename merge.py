@@ -107,12 +107,42 @@ audio_files = [x for x in sorted(args.audio.glob("*.m4a"))]
 still_files = [x for x in sorted(args.stills.glob("*.png"))]
 video_files = [x for x in sorted(args.mp4.glob("*.mp4"))]
 
+if len(still_files) == 0:
+    print(f"- No stills (PNGs) found in {args.stills}. Re-run the deck export without `-i`.")
+    exit()
+
+# Clips can also be listed in the cuts file by giving a path (relative to
+# the working directory) ending in `.mp4` in the Name column, e.g.:
+# | - | - | 18 | videos/Sheffield.mp4 |
+# These take precedence over any clip for the same slide in the MP4 folder.
+clip_map = {}
+cuts = Path(conf['project']['cuts'])
+if cuts.exists():
+    loading = False
+    for line in cuts.read_text().splitlines():
+        txt = line.strip()
+        if txt.startswith('## '):
+            loading = txt[3:].strip() == conf['lessons'][str(args.lesson)]['track'].strip()
+        elif loading and txt.startswith('|'):
+            cells = [x.strip() for x in txt.strip('|').split('|')]
+            if len(cells) >= 4 and cells[2].isdigit() and cells[3].lower().endswith('.mp4'):
+                clip_map[int(cells[2])] = Path(cells[3])
+
+missing = [str(x) for x in clip_map.values() if not x.exists()]
+if len(missing) > 0:
+    print(f"- Couldn't find MP4 file(s) listed in {cuts}: {', '.join(missing)}")
+    print(f"  Paths are resolved relative to the working directory: {Path.cwd()}")
+    exit()
+elif len(clip_map) > 0:
+    print(f"+ Found {len(clip_map)} MP4 file(s) listed in {cuts}.")
+
 fn_final = args.final / f"{conf['lessons'][str(args.lesson)]['week']}.{conf['lessons'][str(args.lesson)]['sequence']}-{safe.sub('_', conf['lessons'][str(args.lesson)]['track'].strip())}.mp4"
 
 # Skip if the final video is newer than all of its inputs. The intro and 
 # outro MP4s are regenerated on every merge so we use their settings instead.
 inputs  = audio_files + still_files
 inputs += [x for x in video_files if not x.stem.endswith(('_01_Intro', '_99_Outro'))]
+inputs += list(clip_map.values())
 inputs += [Path(args.project).with_name(f"{x}.toml") for x in ('intro', 'outro')]
 inputs  = [x for x in inputs if x.exists()]
 
@@ -159,6 +189,7 @@ except TypeError:
     print(f"No matches on pattern {video_pat.pattern} in video files: {', '.join([str(x) for x in video_files])}.")
     video_map = {}
     exit()
+video_map.update(clip_map)
 
 if DEBUG:
     print(f" Video map: {video_map}")
