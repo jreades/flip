@@ -24,7 +24,8 @@ parser.add_argument('-l', '--lesson', type=str, help="The number (or range) of t
 parser.add_argument('-i', '--noimage', help="Skip export of the slide deck to PNG (useful when you are mucking about with the audio and output).", action='store_true')
 parser.add_argument('-a', '--noaudio', help="Skip export of the audio files to M4A (useful when you are mucking about with the audio and output).", action='store_true')
 parser.add_argument('-m', '--nomerge', help="Skip merge of audio and video (assumes MP4 segments haven't changed).", action='store_true')
-parser.add_argument('-f', '--force', help="Force generation of new images, audio, and video (overrides `-i`, `-a`, and `-m`).", action='store_true')
+parser.add_argument('-y', '--yes', help="Render even if there are more stills than expected (passed on to merge.py).", action='store_true')
+parser.add_argument('-f', '--force', help="Regenerate images, audio, and video even if they appear to be up to date. Steps skipped with `-i`, `-a`, or `-m` are still skipped.", action='store_true')
 
 args = parser.parse_args()
 
@@ -75,7 +76,7 @@ for l_num in lesson_list:
     print("=" * 40)
     
     # Extract Slides
-    if args.force or not args.noimage:
+    if not args.noimage:
         print("." * 40)
         print("." * 11 + " Extracting deck " + "." * 12)
         print("." * 40)
@@ -83,6 +84,8 @@ for l_num in lesson_list:
         cmd += f'{ppath / "python"} {script_dir / "deck.py"} \\\n'
         cmd += f'  -p {args.project} \\\n'
         cmd += f'  -l {l_num}'
+        if args.force:
+            cmd += ' \\\n  -f'
 
         print(f"  Add `-i` to skip export of slide deck to PNG.")
         if DEBUG:
@@ -93,7 +96,7 @@ for l_num in lesson_list:
         print(f"- Skipping extraction of lesson {l_num} since `-i` set.")
 
     # Extract Audio
-    if args.force or not args.noaudio:
+    if not args.noaudio:
         print("." * 40)
         print("." * 11 + " Extracting audio " + "." * 12)
         print("." * 40)
@@ -101,6 +104,8 @@ for l_num in lesson_list:
         cmd += f'{ppath / "python"} {script_dir / "audio.py"} \\\n'
         cmd += f'  -p {args.project} \\\n'
         cmd += f'  -l {l_num}'
+        if args.force:
+            cmd += ' \\\n  -f'
 
         print(f"  Add `-a` to skip export of narration to segmented M4A files.")
         if DEBUG:
@@ -111,7 +116,7 @@ for l_num in lesson_list:
         print(f"- Skipping extraction of lesson {l_num} since `-a` set.")
 
     # Merge Audio and Video
-    if args.force or not args.nomerge:
+    if not args.nomerge:
         print("." * 40)
         print("." * 15 + " Merging. " + "." * 15)
         print("." * 40)
@@ -119,6 +124,10 @@ for l_num in lesson_list:
         cmd += f'{ppath / "python"} {script_dir / "merge.py"} \\\n'
         cmd += f'  -p {args.project} \\\n'
         cmd += f'  -l {l_num}'
+        if args.force:
+            cmd += ' \\\n  -f'
+        if args.yes:
+            cmd += ' \\\n  -y'
 
         print(f"  Add `-m` to skip merge of audio and video files.")
         if DEBUG:

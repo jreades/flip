@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
 parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='defaults.toml')
 parser.add_argument('-l', '--lesson', type=str, help="Name of the lesson in the project.toml configuration file.", default='1')
+parser.add_argument('-f', '--force', help="Regenerate output even if it appears to be up to date.", action='store_true')
 
 args = parser.parse_args()
 
@@ -47,11 +48,6 @@ if not args.output.exists():
     print(f"+ Created {args.output}")
 else:
     print(f"+ Found {args.output}")
-    files = glob.glob(str(args.output / "*.m4a"))
-    if len(files) > 0:
-        print(f"  - Emptying directory of already-rendered output")
-        for f in files:
-            Path(f).unlink()
 
 ######################
 # Find the appropriate metadata
@@ -114,6 +110,25 @@ if not audio_src.exists():
     print(f"Couldn't find file: {audio_src}")
     exit()
 
+# The cut list used for the existing clips is stored alongside them,
+# so we can skip regeneration if the rows for this lesson are unchanged
+# and the clips are newer than the source recording.
+cuts_file = args.output / '.cuts'
+cuts_txt  = "\n".join(["|".join(x) for x in [header] + audio_meta])
+clips     = list(args.output.glob("*.m4a"))
+
+if not args.force and len(clips) > 0 and cuts_file.exists() \
+        and cuts_file.read_text() == cuts_txt \
+        and min(x.stat().st_mtime for x in clips) > audio_src.stat().st_mtime:
+    print(f"  + Audio segments are up to date. Use `-f` to force regeneration.")
+    exit()
+
+if len(clips) > 0:
+    print(f"  - Emptying directory of already-rendered output")
+    for f in clips:
+        f.unlink()
+cuts_file.unlink(missing_ok=True)
+
 track = AudioSegment.from_file(audio_src, format="m4a")
 print(f"  + Loaded {len(track):,}ms ({len(track)/(1000*60):0.2f}mn) of recording!")
 print()
@@ -127,6 +142,9 @@ for row in range(0, len(audio_ds[header[0]])):
     
     segment = track[start_ts * 1000:end_ts*1000]
     segment.export((Path(args.output / f"{conf['lessons'][str(args.lesson)]['track'].strip()}_{nm}.m4a")), format="ipod")
+
+# Written last so that an interrupted run is not treated as up to date
+cuts_file.write_text(cuts_txt)
 
 print(f"+++ Audio segments for {conf['lessons'][args.lesson]['track'].strip()} generated +++")
 

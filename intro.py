@@ -37,6 +37,10 @@ for k,v in proj.items():
     if k not in conf:
         conf[k] = v
 
+# Intermediate segments are re-encoded in the final concat, so they use a
+# higher quality (lower CRF) to limit generation loss. Defaults to crf/2.
+icrf = conf['project'].get('icrf', int(conf['project']['crf']) // 2)
+
 parent = Path(conf['outputs']['video'])
 parent.mkdir(parents=True, exist_ok=True)
 
@@ -279,8 +283,8 @@ if conf['author'].get('text', None) != None:
 #fn_out = Path(args.ouput / safe.sub('_', conf['lessons'][str(args.lesson)]['track'].strip() + ".mp4"))
 out = str(Path(args.output / f"{conf['lessons'][str(args.lesson)]['track'].strip()}_01_Intro.mp4"))
 
-cmd.append(f'" -c:v {conf["project"]["vcodec"]} -crf {conf["project"]["crf"]} ') # That double-quote is important!
-cmd.append(f'-pix_fmt yuv420p -tune stillimage')
+cmd.append(f'" -r {conf["project"].get("fps", 30)} -c:v {conf["project"]["vcodec"]} -crf {icrf} ') # That double-quote is important!
+cmd.append(f'-pix_fmt yuv420p {conf["project"].get("vopts", "")}')
 cmd.append(f'{re.escape(out)}')
 
 if DEBUG:

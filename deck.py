@@ -14,6 +14,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-p', '--project', type=str, help="Path to the project.toml configuration file.", default='project.toml')
 parser.add_argument('-d', '--defaults', type=str, help="Path to the defaults.toml configuration file.", default='defaults.toml')
 parser.add_argument('-l', '--lesson', type=int, help="Name of the lesson in the project.toml configuration file.", default=1)
+parser.add_argument('-f', '--force', help="Regenerate output even if it appears to be up to date.", action='store_true')
 
 args = parser.parse_args()
 
@@ -49,8 +50,11 @@ if not args.output.exists():
     print(f"+ Created {args.output}")
 else:
     print(f"+ Found {args.output}")
-    files = glob.glob(str(args.output / "*.m4a"))
-    if len(files) > 0:
+    files = glob.glob(str(args.output / "*.png"))
+    if len(files) > 0 and not args.force:
+        print(f"  + Found {len(files)} existing PNGs. Use `-f` to force re-export.")
+        exit()
+    elif len(files) > 0:
         print(f"  - Emptying directory of already-rendered output")
         for f in files:
             Path(f).unlink()
